@@ -14,4 +14,14 @@ func main() {
 		fmt.Println("cannot make a secret")
 	}
 	fmt.Println(s)
+
+	var tank libBootleg.TokenTank
+	tank.AddReadable("sample", s)
+
+	success, n := tank.CheckReadableToken(s)
+	if success {
+		fmt.Println("welcome " + n)
+	} else {
+		fmt.Println("I don't know you")
+	}
 }
