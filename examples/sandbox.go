@@ -15,13 +15,14 @@ func main() {
 	}
 	fmt.Println(s)
 
-	var tank libBootleg.TokenTank
-	tank.AddReadable("sample", s)
-
-	success, n := tank.CheckReadableToken(s)
-	if success {
-		fmt.Println("welcome " + n)
-	} else {
-		fmt.Println("I don't know you")
+	ni := libBootleg.NetInfo{
+		"127.0.0.1",
+		6666,
 	}
+	fmt.Println(ni.String())
+
+	var l libBootleg.Listener
+	l.SetNetInfo(ni.Ip, ni.Port)
+	l.SetSecret(b)
+	l.StartListening()
 }
