@@ -29,14 +29,13 @@ func Send(_ni *NetInfo, _secret []byte, _msg string) {
 
 //Listener---
 type Listener struct {
-	netInfo             NetInfo
-	cc                  libdisco.Config
-	listener            net.Listener
-	chanListenerBreaker chan bool
-	bListening          bool
-	bNetInfo            bool
-	bProtocol           bool
-	bListener           bool
+	netInfo    NetInfo
+	cc         libdisco.Config
+	listener   net.Listener
+	bListening bool
+	bNetInfo   bool
+	bProtocol  bool
+	bListener  bool
 }
 
 func (_l Listener) IsListening() bool {
@@ -71,7 +70,7 @@ func (_l *Listener) SetSecret(_secret []byte) {
 	fmt.Println("Listener secret set")
 }
 
-func (_l *Listener) StartListening() bool {
+func (_l *Listener) StartListening(_data chan []byte) bool {
 	if !_l.HasNetInfo() || !_l.HasSecret() {
 		fmt.Println("Listener NOT ready: cannot setup")
 		return false
@@ -82,15 +81,15 @@ func (_l *Listener) StartListening() bool {
 		fmt.Println("cannot setup listener: ", err)
 	} else {
 		fmt.Println("Listener setup and listening on ", _l.netInfo, "...")
-		loopListener(_l)
+		go loopListener(_l, _data)
 	}
 	return true
 }
 
-func (_l *Listener) SetupAndListen(_ip string, _port int, _secret []byte) bool {
+func (_l *Listener) SetupAndListen(_ip string, _port int, _secret []byte, _data chan []byte) bool {
 	_l.SetNetInfo(_ip, _port)
 	_l.SetSecret(_secret)
-	return _l.StartListening()
+	return _l.StartListening(_data)
 }
 
 func (_l *Listener) StopListening() {
@@ -100,8 +99,9 @@ func (_l *Listener) StopListening() {
 	//TODO
 }
 
-func loopListener(_l *Listener) {
+func loopListener(_l *Listener, _data chan []byte) {
 	for {
+
 		var err error
 		server, err := _l.listener.Accept()
 		if err != nil {
@@ -110,19 +110,20 @@ func loopListener(_l *Listener) {
 			continue
 		}
 		fmt.Println("server accepted connection from ", server.RemoteAddr())
-		go readSocket(server)
+		go readSocket(server, _data)
 	}
 }
 
-func readSocket(_srv net.Conn) {
+func readSocket(_srv net.Conn, _data chan []byte) {
 	buf := make([]byte, 100)
 	for {
-		n, err := _srv.Read(buf)
+		_, err := _srv.Read(buf)
 		if err != nil {
 			fmt.Println("server cannot read on socket", err)
 			break
 		}
-		fmt.Println("received data from ", _srv.RemoteAddr(), ": ", string(buf[:n]))
+		_data <- buf
+		//fmt.Println("received data from ", _srv.RemoteAddr(), ": ", string(buf[:n]))
 	}
 	fmt.Println("shutting down connection")
 	_srv.Close()

@@ -1,12 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"github.com/naus3a/libBootleg"
 )
 
 func main() {
-	var token string
-	token = "B56zvdbX_dY6FJEP-s7ipwtG4DtnRlOhCxReSnbpnkA="
+	var bMsg []byte
+	var sMsg string
+
+	var token string = "B56zvdbX_dY6FJEP-s7ipwtG4DtnRlOhCxReSnbpnkA="
 
 	s, _ := libBootleg.DecodeReadableSecret(token)
 
@@ -15,8 +18,12 @@ func main() {
 		6666,
 	}
 
+	cMsg := make(chan []byte)
+
 	var l libBootleg.Listener
+	l.SetupAndListen(ni.Ip, ni.Port, s, cMsg)
 
-	l.SetupAndListen(ni.Ip, ni.Port, s)
-
+	bMsg = <-cMsg
+	sMsg = string(bMsg[:len(bMsg)])
+	fmt.Println("received: ", sMsg)
 }
