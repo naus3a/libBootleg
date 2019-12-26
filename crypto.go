@@ -101,7 +101,6 @@ func (_l *Listener) StopListening() {
 
 func loopListener(_l *Listener, _data chan []byte) {
 	for {
-
 		var err error
 		server, err := _l.listener.Accept()
 		if err != nil {
@@ -123,7 +122,6 @@ func readSocket(_srv net.Conn, _data chan []byte) {
 			break
 		}
 		_data <- buf
-		//fmt.Println("received data from ", _srv.RemoteAddr(), ": ", string(buf[:n]))
 	}
 	fmt.Println("shutting down connection")
 	_srv.Close()

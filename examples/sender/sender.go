@@ -11,7 +11,7 @@ func main() {
 	s, _ := libBootleg.DecodeReadableSecret(token)
 
 	ni := libBootleg.NetInfo{
-		"127.0.0.1",
+		libBootleg.GetOutboundIp(),
 		6666,
 	}
 
