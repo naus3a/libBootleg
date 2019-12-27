@@ -105,6 +105,37 @@ func main() {
 	}
 }
 
-func runSecret()               {}
-func runSender(cf *CliFlags)   {}
-func runReceiver(cf *CliFlags) {}
+func runSecret() {
+	var err error
+	s, _ := libBootleg.MakeSecret()
+	rs := libBootleg.MakeSecretReadable(s)
+	libBootleg.CheckDir("~/.bootleg")
+	err = libBootleg.SaveSecret(s, "~/.bootleg/token")
+	if err != nil {
+		fmt.Println("Could not save secret: ", err)
+		return
+	}
+	fmt.Println("New token created and saved:")
+	fmt.Println(rs)
+}
+
+func runSender(cf *CliFlags) {
+	ni := libBootleg.NetInfo{
+		cf.ip,
+		cf.port,
+	}
+	s, _ := libBootleg.DecodeReadableSecret(cf.token)
+	libBootleg.Send(&ni, s, cf.data)
+}
+
+func runReceiver(cf *CliFlags) {
+	var data []byte
+	var sData string
+	s, _ := libBootleg.DecodeReadableSecret(cf.token)
+	cData := make(chan []byte)
+	var l libBootleg.Listener
+	l.SetupAndListen(cf.ip, cf.port, s, cData)
+	data = <-cData
+	sData = string(data[len(data)])
+	fmt.Println(sData)
+}

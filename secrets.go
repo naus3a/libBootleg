@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"github.com/mimoo/disco/libdisco"
+	"io/ioutil"
 )
 
 const szSecret int = 32
@@ -30,6 +31,16 @@ func DecodeReadableSecret(_readable string) ([]byte, error) {
 		return s, err
 	}
 
+}
+
+func SaveSecret(_secret []byte, _path string) error {
+	var err error
+	err = ResetFile(_path)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(_path, _secret, 0644)
+	return err
 }
 
 func MakeHash(_secret []byte) []byte {
