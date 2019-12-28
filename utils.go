@@ -2,6 +2,8 @@ package libBootleg
 
 import (
 	"os"
+	"os/user"
+	"path/filepath"
 )
 
 func DoesFileExist(_path string) bool {
@@ -30,8 +32,31 @@ func ResetFile(_path string) error {
 	return err
 }
 
-func CheckDir(_path string) {
+func CheckDir(_path string) error {
+	var err error
 	if !DoesFileExist(_path) {
-		os.Mkdir(_path, os.ModeDir)
+		err = os.MkdirAll(_path, os.ModePerm)
 	}
+	return err
+}
+
+func GetHomePath() (string, error) {
+	u, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+	return u.HomeDir, err
+}
+
+func GetDotDirPath() (string, error) {
+	pth, err := GetHomePath()
+	if err != nil {
+		return "", err
+	}
+	pth = PathJoin(pth, ".bootleg")
+	return pth, err
+}
+
+func PathJoin(_path1 string, _path2 string) string {
+	return (_path1 + string(filepath.Separator) + _path2)
 }

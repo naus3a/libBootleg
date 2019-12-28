@@ -43,6 +43,23 @@ func SaveSecret(_secret []byte, _path string) error {
 	return err
 }
 
+func LoadSecret(_path string, _secret *[]byte) (err error) {
+	if DoesFileExist(_path) {
+		*_secret, err = ioutil.ReadFile(_path)
+		if err != nil {
+			return err
+		} else {
+			if len(*_secret) < 32 {
+				return errors.New("no secret or corrupted secret")
+			} else {
+				return err
+			}
+		}
+	} else {
+		return errors.New("path does not exists")
+	}
+}
+
 func MakeHash(_secret []byte) []byte {
 	return libdisco.Hash(_secret, szHash)
 }
