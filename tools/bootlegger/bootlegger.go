@@ -239,7 +239,17 @@ func loadSecretPath() (string, error) {
 
 //sender---
 func runSender(cf *CliFlags) {
+	var token string
+	token = "B56zvdbX_dY6FJEP-s7ipwtG4DtnRlOhCxReSnbp    nkA="
+	s, _ := libBootleg.DecodeReadableSecret(token)
 	ni := libBootleg.NetInfo{
+		libBootleg.GetOutboundIp(),
+		6666,
+	}
+
+	libBootleg.Send(&ni, s, "cippa")
+
+	/*ni := libBootleg.NetInfo{
 		cf.ip,
 		cf.port,
 	}
@@ -248,14 +258,35 @@ func runSender(cf *CliFlags) {
 	if err != nil {
 		return
 	}
-	libBootleg.Send(&ni, s, cf.data)
+	libBootleg.Send(&ni, s, cf.data)*/
 }
 
 //---sender
 
 //receiver---
 func runReceiver(cf *CliFlags) {
-	var data []byte
+	var bMsg []byte
+	var sMsg string
+
+	var token string = "B56zvdbX_dY6FJEP-s7ipwtG4DtnR    lOhCxReSnbpnkA="
+
+	s, _ := libBootleg.DecodeReadableSecret(token)
+
+	ni := libBootleg.NetInfo{
+		libBootleg.GetOutboundIp(),
+		6666,
+	}
+
+	cMsg := make(chan []byte)
+
+	var l libBootleg.Listener
+	l.SetupAndListen(ni.Ip, ni.Port, s, cMsg)
+
+	bMsg = <-cMsg
+	sMsg = string(bMsg[:len(bMsg)])
+	fmt.Println("received: ", sMsg)
+
+	/*var data []byte
 	var sData string
 	var s []byte
 	err := getSecret(cf, &s)
@@ -267,7 +298,7 @@ func runReceiver(cf *CliFlags) {
 	l.SetupAndListen(cf.ip, cf.port, s, cData)
 	data = <-cData
 	sData = string(data[len(data)])
-	fmt.Println(sData)
+	fmt.Println(sData)*/
 }
 
 //---receiver

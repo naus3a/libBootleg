@@ -114,7 +114,7 @@ func loopListener(_l *Listener, _data chan []byte) {
 }
 
 func readSocket(_srv net.Conn, _data chan []byte) {
-	buf := make([]byte, 100)
+	buf := make([]byte, 1000)
 	for {
 		_, err := _srv.Read(buf)
 		if err != nil {
