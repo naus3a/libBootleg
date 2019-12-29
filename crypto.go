@@ -108,11 +108,11 @@ func loopListener(_l *Listener, _data chan []byte) {
 		var err error
 		server, err := _l.listener.Accept()
 		if err != nil {
-			fmt.Println("server cannot accept: ", err)
+			fmt.Println("Listener cannot accept: ", err)
 			server.Close()
 			continue
 		}
-		fmt.Println("server accepted connection from ", server.RemoteAddr())
+		fmt.Println("Listener accepted connection from ", server.RemoteAddr())
 		go readSocket(server, _data, _l.BufSize)
 	}
 }
@@ -123,13 +123,13 @@ func readSocket(_srv net.Conn, _data chan []byte, _bufSz int) {
 		_, err := _srv.Read(buf)
 		if err != nil {
 			if err.Error() != "EOF" {
-				fmt.Println("server cannot read on socket", err)
+				fmt.Println("Listener cannot read on socket", err)
 			}
 			break
 		}
 		_data <- buf
 	}
-	fmt.Println("shutting down connection")
+	fmt.Println("Transfer completed")
 	_srv.Close()
 }
 

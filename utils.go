@@ -60,3 +60,7 @@ func GetDotDirPath() (string, error) {
 func PathJoin(_path1 string, _path2 string) string {
 	return (_path1 + string(filepath.Separator) + _path2)
 }
+
+func Insert(_a []byte, _idx int, _el byte) []byte {
+	return append(_a[:_idx], append([]byte{_el}, _a[_idx:]...)...)
+}

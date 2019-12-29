@@ -33,12 +33,48 @@ func DecodeReadableSecret(_readable string) ([]byte, error) {
 
 }
 
+func password2Key(_password string) []byte {
+	_key := []byte(_password)
+	if len(_key) < 16 {
+		var diff int
+		diff = 16 - len(_key)
+		for i := 0; i < diff; i++ {
+			_key = append(_key, '0')
+		}
+	}
+	return _key
+}
+
+func EncryptSecret(_secret []byte, _password string) []byte {
+	return libdisco.Encrypt(password2Key(_password), _secret)
+}
+
+func DecryptSecret(_secret []byte, _password string) ([]byte, error) {
+	return libdisco.Decrypt(password2Key(_password), _secret)
+}
+
+func IsEncryptedSecret(_secret []byte) bool {
+	if len(_secret) > 0 {
+		return _secret[0] == '1'
+	}
+	return false
+}
+
+func MarkSecretEncrypted(_secret *[]byte) {
+	*_secret = Insert(*_secret, 0, '1')
+}
+
+func MarkSecretPlainText(_secret *[]byte) {
+	*_secret = Insert(*_secret, 0, '0')
+}
+
 func SaveSecret(_secret []byte, _path string) error {
 	var err error
 	err = ResetFile(_path)
 	if err != nil {
 		return err
 	}
+	MarkSecretPlainText(&_secret)
 	err = ioutil.WriteFile(_path, _secret, 0644)
 	return err
 }
@@ -49,6 +85,15 @@ func LoadSecret(_path string, _secret *[]byte) (err error) {
 		if err != nil {
 			return err
 		} else {
+			if len(*_secret) < 1 {
+				return errors.New("no secret or corrupted secret")
+			} else {
+				if IsEncryptedSecret(*_secret) {
+					return errors.New("encrypted secret: password needed")
+				}
+			}
+			*_secret = (*_secret)[1:]
+
 			if len(*_secret) < 32 {
 				return errors.New("no secret or corrupted secret")
 			} else {
