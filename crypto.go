@@ -122,7 +122,9 @@ func readSocket(_srv net.Conn, _data chan []byte, _bufSz int) {
 	for {
 		_, err := _srv.Read(buf)
 		if err != nil {
-			fmt.Println("server cannot read on socket", err)
+			if err.Error() != "EOF" {
+				fmt.Println("server cannot read on socket", err)
+			}
 			break
 		}
 		_data <- buf

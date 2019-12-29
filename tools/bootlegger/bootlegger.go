@@ -28,6 +28,7 @@ const (
 //parsing---
 
 type CliFlags struct {
+	bufSz        int
 	port         int
 	ip           string
 	token        string
@@ -40,7 +41,7 @@ func (cf *CliFlags) setup() {
 	cf.curMode = MODE_NONE
 
 	flag.Usage = func() {
-		fmt.Printf("Usage: bootlegger [mode] [params]\n\n")
+		fmt.Printf("Usage: bootlegger [optional params] [mode]\n\n")
 
 		fmt.Printf("Modes:\n")
 		fmt.Printf("  send [yourtext]\n")
@@ -55,6 +56,7 @@ func (cf *CliFlags) setup() {
 		fmt.Printf("\nParams:\n")
 		flag.PrintDefaults()
 	}
+	flag.IntVar(&cf.bufSz, "bf", 100, "buffer size in bytes")
 	flag.IntVar(&cf.port, "port", 6666, "port listening")
 	flag.StringVar(&cf.ip, "ip", libBootleg.GetOutboundIp(), "IP listening")
 	flag.StringVar(&cf.token, "token", "whatever token you saved", "the token to use")
@@ -71,7 +73,10 @@ func (cf *CliFlags) parseSenderData(_args []string, sId int) bool {
 		if _args[i][0] == '-' {
 			i = len(_args) + 2
 		} else {
-			cf.data = cf.data + " " + _args[i]
+			if nAdded > 0 {
+				cf.data = cf.data + " "
+			}
+			cf.data = cf.data + _args[i]
 			nAdded++
 		}
 	}
@@ -264,7 +269,7 @@ func runReceiver(cf *CliFlags) {
 	}
 	cData := make(chan []byte)
 	var l libBootleg.Listener
-	l.BufSize = 100
+	l.BufSize = cf.bufSz
 	l.SetupAndListen(cf.ip, cf.port, s, cData)
 	data = <-cData
 	sData = string(data[:len(data)])
