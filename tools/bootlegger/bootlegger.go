@@ -264,9 +264,10 @@ func runReceiver(cf *CliFlags) {
 	}
 	cData := make(chan []byte)
 	var l libBootleg.Listener
+	l.BufSize = 100
 	l.SetupAndListen(cf.ip, cf.port, s, cData)
 	data = <-cData
-	sData = string(data[len(data)])
+	sData = string(data[:len(data)])
 	fmt.Println(sData)
 }
 

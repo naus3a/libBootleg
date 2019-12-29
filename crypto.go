@@ -32,6 +32,7 @@ type Listener struct {
 	netInfo    NetInfo
 	cc         libdisco.Config
 	listener   net.Listener
+	BufSize    int
 	bListening bool
 	bNetInfo   bool
 	bProtocol  bool
@@ -75,6 +76,9 @@ func (_l *Listener) StartListening(_data chan []byte) bool {
 		fmt.Println("Listener NOT ready: cannot setup")
 		return false
 	}
+	if _l.BufSize < 1 {
+
+	}
 	var err error
 	_l.listener, err = libdisco.Listen("tcp", _l.netInfo.String(), &_l.cc)
 	if err != nil {
@@ -114,7 +118,7 @@ func loopListener(_l *Listener, _data chan []byte) {
 }
 
 func readSocket(_srv net.Conn, _data chan []byte) {
-	buf := make([]byte, 1000)
+	buf := make([]byte, 100)
 	for {
 		_, err := _srv.Read(buf)
 		if err != nil {
