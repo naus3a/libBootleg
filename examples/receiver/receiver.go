@@ -9,7 +9,7 @@ func main() {
 	var bMsg []byte
 	var sMsg string
 
-	var token string = "B56zvdbX_dY6FJEP-s7ipwtG4DtnRlOhCxReSnbpnkA="
+	var token string = "vj1o6DrtmxYnlwavDdMaFEV87L6dByUNzKFN7TJmnsQ="
 
 	s, _ := libBootleg.DecodeReadableSecret(token)
 

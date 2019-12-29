@@ -6,7 +6,7 @@ import (
 
 func main() {
 	var token string
-	token = "B56zvdbX_dY6FJEP-s7ipwtG4DtnRlOhCxReSnbpnkA="
+	token = "vj1o6DrtmxYnlwavDdMaFEV87L6dByUNzKFN7TJmnsQ="
 
 	s, _ := libBootleg.DecodeReadableSecret(token)
 
