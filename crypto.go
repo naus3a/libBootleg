@@ -77,7 +77,7 @@ func (_l *Listener) StartListening(_data chan []byte) bool {
 		return false
 	}
 	if _l.BufSize < 1 {
-
+		_l.BufSize = 100
 	}
 	var err error
 	_l.listener, err = libdisco.Listen("tcp", _l.netInfo.String(), &_l.cc)
@@ -113,12 +113,12 @@ func loopListener(_l *Listener, _data chan []byte) {
 			continue
 		}
 		fmt.Println("server accepted connection from ", server.RemoteAddr())
-		go readSocket(server, _data)
+		go readSocket(server, _data, _l.BufSize)
 	}
 }
 
-func readSocket(_srv net.Conn, _data chan []byte) {
-	buf := make([]byte, 100)
+func readSocket(_srv net.Conn, _data chan []byte, _bufSz int) {
+	buf := make([]byte, _bufSz)
 	for {
 		_, err := _srv.Read(buf)
 		if err != nil {
