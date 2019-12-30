@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"github.com/mimoo/disco/libdisco"
 	"io/ioutil"
 )
@@ -79,6 +80,18 @@ func SaveSecret(_secret []byte, _path string) error {
 	return err
 }
 
+func SaveSecretEncrypted(_secret []byte, _path string, _pass string) error {
+	var err error
+	err = ResetFile(_path)
+	if err != nil {
+		return err
+	}
+	_e := EncryptSecret(_secret, _pass)
+	MarkSecretEncrypted(&_e)
+	err = ioutil.WriteFile(_path, _e, 0644)
+	return err
+}
+
 func LoadSecret(_path string, _secret *[]byte) (err error) {
 	if DoesFileExist(_path) {
 		*_secret, err = ioutil.ReadFile(_path)
@@ -98,6 +111,37 @@ func LoadSecret(_path string, _secret *[]byte) (err error) {
 				return errors.New("no secret or corrupted secret")
 			} else {
 				return err
+			}
+		}
+	} else {
+		return errors.New("path does not exists")
+	}
+}
+
+func LoadSecretEncrypted(_path string, _secret *[]byte, _pass string) (err error) {
+	if DoesFileExist(_path) {
+		*_secret, err = ioutil.ReadFile(_path)
+		if err != nil {
+			return err
+		} else {
+			if len(*_secret) < 1 {
+				return errors.New("no secret or corrupted secret")
+			} else {
+				if IsEncryptedSecret(*_secret) {
+					*_secret = (*_secret)[1:]
+					*_secret, err = DecryptSecret(*_secret, _pass)
+					if err != nil {
+						return err
+					}
+				} else {
+					fmt.Println("Your saved token in unencrypted")
+					*_secret = (*_secret)[1:]
+				}
+				if len(*_secret) < 32 {
+					return errors.New("no secret or corrupted secret")
+				} else {
+					return err
+				}
 			}
 		}
 	} else {

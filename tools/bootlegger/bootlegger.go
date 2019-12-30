@@ -32,6 +32,7 @@ type CliFlags struct {
 	port         int
 	ip           string
 	token        string
+	pass         string
 	data         string
 	curMode      ToolMode
 	curSecAction SecretAction
@@ -59,7 +60,8 @@ func (cf *CliFlags) setup() {
 	flag.IntVar(&cf.bufSz, "bf", 100, "buffer size in bytes")
 	flag.IntVar(&cf.port, "port", 6666, "port listening")
 	flag.StringVar(&cf.ip, "ip", libBootleg.GetOutboundIp(), "IP listening")
-	flag.StringVar(&cf.token, "token", "whatever token you saved", "the token to use")
+	flag.StringVar(&cf.token, "token", "", "the token to use (use saved token if blank)")
+	flag.StringVar(&cf.pass, "pass", "", "the password to make or load your saved token (unencrypted if blank)")
 }
 
 func (cf *CliFlags) parseSenderData(_args []string, sId int) bool {
@@ -134,6 +136,10 @@ func (cf *CliFlags) isGoodFlagToken() bool {
 	}
 }
 
+func (cf *CliFlags) hasPassword() bool {
+	return (len(cf.pass) > 0)
+}
+
 func getSecret(cf *CliFlags, _secret *[]byte) error {
 	var err error
 	if cf.isGoodFlagToken() {
@@ -143,7 +149,11 @@ func getSecret(cf *CliFlags, _secret *[]byte) error {
 		var pth string
 		pth, err = loadSecretPath()
 		if err == nil {
-			err = libBootleg.LoadSecret(pth, _secret)
+			if cf.hasPassword() {
+				err = libBootleg.LoadSecretEncrypted(pth, _secret, cf.pass)
+			} else {
+				err = libBootleg.LoadSecret(pth, _secret)
+			}
 			return err
 		} else {
 			return err
@@ -160,7 +170,7 @@ func main() {
 
 	switch cliFlags.curMode {
 	case MODE_SECRET:
-		runSecret(cliFlags.curSecAction)
+		runSecret(&cliFlags)
 	case MODE_SENDER:
 		runSender(&cliFlags)
 	case MODE_RECEIVER:
@@ -171,12 +181,12 @@ func main() {
 }
 
 //secret handling---
-func runSecret(_sa SecretAction) {
-	switch _sa {
+func runSecret(cf *CliFlags) {
+	switch cf.curSecAction {
 	case SECRET_MAKE:
-		makeSecret()
+		makeSecret(cf)
 	case SECRET_SHOW:
-		showSecret()
+		showSecret(cf)
 	case SECRET_CLEAR:
 		clearSecret()
 	default:
@@ -184,7 +194,7 @@ func runSecret(_sa SecretAction) {
 	}
 }
 
-func makeSecret() {
+func makeSecret(cf *CliFlags) {
 	var err error
 	var pthDot string
 	s, _ := libBootleg.MakeSecret()
@@ -199,7 +209,11 @@ func makeSecret() {
 		fmt.Println("Could not check .bootleg dir: ", err)
 		return
 	}
-	err = libBootleg.SaveSecret(s, libBootleg.PathJoin(pthDot, "token"))
+	if cf.hasPassword() {
+		err = libBootleg.SaveSecretEncrypted(s, libBootleg.PathJoin(pthDot, "token"), cf.pass)
+	} else {
+		err = libBootleg.SaveSecret(s, libBootleg.PathJoin(pthDot, "token"))
+	}
 
 	if err != nil {
 		fmt.Println("Could not save secret: ", err)
@@ -209,10 +223,14 @@ func makeSecret() {
 	fmt.Println(rs)
 }
 
-func showSecret() {
+func showSecret(cf *CliFlags) {
 	pth, err := loadSecretPath()
 	var s []byte
-	err = libBootleg.LoadSecret(pth, &s)
+	if cf.hasPassword() {
+		err = libBootleg.LoadSecretEncrypted(pth, &s, cf.pass)
+	} else {
+		err = libBootleg.LoadSecret(pth, &s)
+	}
 	if err != nil {
 		fmt.Println("Cannot find a saved secret: ", err)
 	} else {
