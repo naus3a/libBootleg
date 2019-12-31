@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/mdp/qrterminal"
 	"github.com/naus3a/libBootleg"
 	"os"
 )
@@ -194,6 +195,17 @@ func runSecret(cf *CliFlags) {
 	}
 }
 
+func printQR(_s string) {
+	config := qrterminal.Config{
+		Level:     qrterminal.L,
+		Writer:    os.Stdout,
+		BlackChar: qrterminal.BLACK,
+		WhiteChar: qrterminal.WHITE,
+		QuietZone: 1,
+	}
+	qrterminal.GenerateWithConfig(_s, config)
+}
+
 func makeSecret(cf *CliFlags) {
 	var err error
 	var pthDot string
@@ -234,7 +246,9 @@ func showSecret(cf *CliFlags) {
 	if err != nil {
 		fmt.Println("Cannot find a saved secret: ", err)
 	} else {
-		fmt.Println(libBootleg.MakeSecretReadable(s))
+		rs := libBootleg.MakeSecretReadable(s)
+		fmt.Println(rs)
+		printQR(rs)
 	}
 }
 
