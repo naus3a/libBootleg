@@ -37,6 +37,7 @@ type CliFlags struct {
 	data         string
 	curMode      ToolMode
 	curSecAction SecretAction
+	bQr          bool
 }
 
 func (cf *CliFlags) setup() {
@@ -53,7 +54,7 @@ func (cf *CliFlags) setup() {
 		fmt.Printf("  secret [action]\n")
 		fmt.Printf("\tmake: forge, print and save new token\n")
 		fmt.Printf("\tclear: delete saved token\n")
-		fmt.Printf("\tshow: print saved token\n")
+		fmt.Printf("\tshow [qr]: print saved token (as a QR code if you specify the qr option)\n")
 
 		fmt.Printf("\nParams:\n")
 		flag.PrintDefaults()
@@ -96,6 +97,12 @@ func (cf *CliFlags) parseSecret(_args []string, sId int) SecretAction {
 	case "clear":
 		return SECRET_CLEAR
 	case "show":
+		cf.bQr = false
+		if len(_args) >= sId+3 {
+			if _args[sId+2] == "qr" {
+				cf.bQr = true
+			}
+		}
 		return SECRET_SHOW
 	default:
 		return SECRET_NONE
@@ -248,7 +255,9 @@ func showSecret(cf *CliFlags) {
 	} else {
 		rs := libBootleg.MakeSecretReadable(s)
 		fmt.Println(rs)
-		printQR(rs)
+		if cf.bQr {
+			printQR(rs)
+		}
 	}
 }
 
