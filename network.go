@@ -29,7 +29,9 @@ func GetOutboundIp() string {
 	if err == nil {
 		ip = conn.LocalAddr().(*net.UDPAddr).IP.String()
 	}
-	defer conn.Close()
+	if conn != nil {
+		defer conn.Close()
+	}
 	return ip
 }
 
