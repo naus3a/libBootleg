@@ -136,7 +136,7 @@ func (cf *CliFlags) parse() {
 }
 
 func (cf *CliFlags) isGoodFlagToken() bool {
-	if len(cf.token) != 32 {
+	if len(cf.token) < 32 {
 		fmt.Println("Using saved token")
 		return false
 	} else {
