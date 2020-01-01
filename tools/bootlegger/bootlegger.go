@@ -52,7 +52,7 @@ func (cf *CliFlags) setup() {
 		fmt.Printf("  receive\n")
 		fmt.Printf("\tlisten for data from a sender\n")
 		fmt.Printf("  secret [action]\n")
-		fmt.Printf("\tmake: forge, print and save new token\n")
+		fmt.Printf("\tmake: forge (make random if you don't specify a token), print and save new token\n")
 		fmt.Printf("\tclear: delete saved token\n")
 		fmt.Printf("\tshow [qr]: print saved token (as a QR code if you specify the qr option)\n")
 
@@ -216,8 +216,15 @@ func printQR(_s string) {
 func makeSecret(cf *CliFlags) {
 	var err error
 	var pthDot string
-	s, _ := libBootleg.MakeSecret()
-	rs := libBootleg.MakeSecretReadable(s)
+	var s []byte
+	var rs string
+	if cf.isGoodFlagToken() {
+		rs = cf.token
+		s, _ = libBootleg.DecodeReadableSecret(rs)
+	} else {
+		s, _ = libBootleg.MakeSecret()
+		rs = libBootleg.MakeSecretReadable(s)
+	}
 	pthDot, err = libBootleg.GetDotDirPath()
 	if err != nil {
 		fmt.Println("Could not get your home path: ", err)
