@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mimoo/disco/libdisco"
+	"io/ioutil"
 	"net"
 )
 
@@ -85,6 +86,10 @@ func (dh *DataHeader) GetType() DataType {
 	return dh.dataType
 }
 
+func (dh *DataHeader) GetFileName() string {
+	return dh.fileName
+}
+
 func (dh *DataHeader) GetRaw() []byte {
 	switch dh.dataType {
 	case DATA_TEXT:
@@ -136,6 +141,16 @@ func (dp *DataPack) SetFromRaw(_d []byte) {
 		dp.Header.dataType = DATA_NONE
 		return
 	}
+}
+
+func (dp *DataPack) SaveFile() error {
+	var err error = nil
+	if dp.Header.dataType != DATA_FILE {
+		err = errors.New("wrong data type")
+		return err
+	}
+	err = ioutil.WriteFile(dp.Header.fileName, dp.Data, 0644)
+	return err
 }
 
 func (dp *DataPack) GetRaw() []byte {

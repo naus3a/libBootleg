@@ -322,6 +322,13 @@ func runReceiver(cf *CliFlags) {
 	switch data.Header.GetType() {
 	case libBootleg.DATA_TEXT:
 		fmt.Println(string(data.Data))
+	case libBootleg.DATA_FILE:
+		err = data.SaveFile()
+		if err != nil {
+			fmt.Println("Cannot save file: ", err)
+		} else {
+			fmt.Println("File saved to ", data.Header.GetFileName())
+		}
 	}
 }
 
