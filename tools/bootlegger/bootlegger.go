@@ -308,20 +308,21 @@ func runSender(cf *CliFlags) {
 
 //receiver---
 func runReceiver(cf *CliFlags) {
-	var data []byte
-	var sData string
+	var data libBootleg.DataPack
 	var s []byte
 	err := getSecret(cf, &s)
 	if err != nil {
 		fmt.Println("Cannot start a receiver: ", err)
 	}
-	cData := make(chan []byte)
+	cData := make(chan libBootleg.DataPack)
 	var l libBootleg.Listener
 	l.BufSize = cf.bufSz
 	l.SetupAndListen(cf.ip, cf.port, s, cData)
 	data = <-cData
-	sData = string(data[:len(data)])
-	fmt.Println(sData)
+	switch data.Header.GetType() {
+	case libBootleg.DATA_TEXT:
+		fmt.Println(string(data.Data))
+	}
 }
 
 //---receiver

@@ -1,6 +1,7 @@
 package libBootleg
 
 import (
+	"errors"
 	"fmt"
 	"github.com/mimoo/disco/libdisco"
 	"net"
@@ -17,7 +18,9 @@ const (
 )
 
 type DataHeader struct {
-	dataType DataType
+	dataType   DataType
+	szFileName byte
+	fileName   string
 }
 
 func (dh *DataHeader) setText() {
@@ -28,16 +31,58 @@ func (dh *DataHeader) setProbe() {
 	dh.dataType = DATA_PROBE
 }
 
+func (dh *DataHeader) setFile(_fName string) {
+	dh.dataType = DATA_FILE
+	dh.szFileName = byte(len(_fName))
+	dh.fileName = _fName
+}
+
 func (dh *DataHeader) SetFromData(_d []byte) {
 	switch _d[0] {
 	case byte(DATA_PROBE):
 		dh.dataType = DATA_PROBE
 	case byte(DATA_TEXT):
 		dh.dataType = DATA_TEXT
-
+	case byte(DATA_FILE):
+		var err error
+		dh.dataType = DATA_FILE
+		dh.szFileName, err = dh.getFileNameSz(_d)
+		if err != nil {
+			dh.dataType = DATA_NONE
+			return
+		}
+		dh.fileName, err = dh.getFileName(_d)
+		if err != nil {
+			dh.dataType = DATA_NONE
+			return
+		}
 	default:
 		dh.dataType = DATA_NONE
 	}
+}
+
+func (dh *DataHeader) getFileNameSz(_d []byte) (_sz byte, err error) {
+	if len(_d) < 2 {
+		err = errors.New("malformed data")
+		return
+	}
+	_sz = _d[1]
+	err = nil
+	return
+}
+
+func (dh *DataHeader) getFileName(_d []byte) (_fn string, err error) {
+	if len(_d) < (2 + int(dh.szFileName)) {
+		err = errors.New("malformed data")
+		return
+	}
+	_fn = string(_d[2:(int(dh.szFileName) + 1)])
+	err = nil
+	return
+}
+
+func (dh *DataHeader) GetType() DataType {
+	return dh.dataType
 }
 
 func (dh *DataHeader) GetRaw() []byte {
@@ -81,6 +126,12 @@ func (dp *DataPack) SetFromRaw(_d []byte) {
 		dp.Header.dataType = DATA_TEXT
 		dp.Data = _d[1:]
 		return
+	case byte(DATA_FILE):
+		dp.Header.SetFromData(_d)
+		if dp.Header.dataType == DATA_NONE {
+			return
+		}
+		dp.Data = _d[int((dp.Header.szFileName)+1):]
 	default:
 		dp.Header.dataType = DATA_NONE
 		return
@@ -163,7 +214,7 @@ func (_l *Listener) SetSecret(_secret []byte) {
 	fmt.Println("Listener secret set")
 }
 
-func (_l *Listener) StartListening(_data chan []byte) bool {
+func (_l *Listener) StartListening(_data chan DataPack) bool {
 	if !_l.HasNetInfo() || !_l.HasSecret() {
 		fmt.Println("Listener NOT ready: cannot setup")
 		return false
@@ -182,7 +233,7 @@ func (_l *Listener) StartListening(_data chan []byte) bool {
 	return true
 }
 
-func (_l *Listener) SetupAndListen(_ip string, _port int, _secret []byte, _data chan []byte) bool {
+func (_l *Listener) SetupAndListen(_ip string, _port int, _secret []byte, _data chan DataPack) bool {
 	_l.SetNetInfo(_ip, _port)
 	_l.SetSecret(_secret)
 	return _l.StartListening(_data)
@@ -195,7 +246,7 @@ func (_l *Listener) StopListening() {
 	//TODO
 }
 
-func loopListener(_l *Listener, _data chan []byte) {
+func loopListener(_l *Listener, _data chan DataPack) {
 	for {
 		var err error
 		server, err := _l.listener.Accept()
@@ -209,7 +260,7 @@ func loopListener(_l *Listener, _data chan []byte) {
 	}
 }
 
-func readSocket(_srv net.Conn, _data chan []byte, _bufSz int) {
+func readSocket(_srv net.Conn, _data chan DataPack, _bufSz int) {
 	buf := make([]byte, _bufSz)
 	for {
 		_, err := _srv.Read(buf)
@@ -221,7 +272,7 @@ func readSocket(_srv net.Conn, _data chan []byte, _bufSz int) {
 		}
 		var dp DataPack
 		dp.SetFromRaw(buf)
-		_data <- dp.Data
+		_data <- dp
 	}
 	fmt.Println("Transfer completed")
 	_srv.Close()
