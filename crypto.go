@@ -6,6 +6,96 @@ import (
 	"net"
 )
 
+//header---
+type DataType byte
+
+const (
+	DATA_TEXT DataType = iota
+	DATA_FILE
+	DATA_PROBE
+	DATA_NONE
+)
+
+type DataHeader struct {
+	dataType DataType
+}
+
+func (dh *DataHeader) setText() {
+	dh.dataType = DATA_TEXT
+}
+
+func (dh *DataHeader) setProbe() {
+	dh.dataType = DATA_PROBE
+}
+
+func (dh *DataHeader) SetFromData(_d []byte) {
+	switch _d[0] {
+	case byte(DATA_PROBE):
+		dh.dataType = DATA_PROBE
+	case byte(DATA_TEXT):
+		dh.dataType = DATA_TEXT
+
+	default:
+		dh.dataType = DATA_NONE
+	}
+}
+
+func (dh *DataHeader) GetRaw() []byte {
+	switch dh.dataType {
+	case DATA_TEXT:
+		h := []byte{byte(DATA_TEXT)}
+		return h
+	default:
+		h := []byte{byte(DATA_NONE)}
+		return h
+	}
+}
+
+//---header
+
+//data---
+type DataPack struct {
+	Header DataHeader
+	Data   []byte
+}
+
+func (dp *DataPack) setProbe() {
+	dp.Header.setProbe()
+}
+
+func (dp *DataPack) setText(_txt string) {
+	dp.Header.setText()
+	dp.Data = []byte(_txt)
+}
+
+func (dp *DataPack) SetFromRaw(_d []byte) {
+	if _d == nil || len(_d) < 1 {
+		dp.Header.dataType = DATA_NONE
+		return
+	}
+	switch _d[0] {
+	case byte(DATA_PROBE):
+		dp.Header.dataType = DATA_PROBE
+		return
+	case byte(DATA_TEXT):
+		dp.Header.dataType = DATA_TEXT
+		dp.Data = _d[1:]
+		return
+	default:
+		dp.Header.dataType = DATA_NONE
+		return
+	}
+}
+
+func (dp *DataPack) GetRaw() []byte {
+	if dp.Data == nil {
+		return dp.Header.GetRaw()
+	}
+	return append(dp.Header.GetRaw(), dp.Data...)
+}
+
+//---data
+
 func makeConfig(_secret []byte) libdisco.Config {
 	return libdisco.Config{
 		HandshakePattern: libdisco.NoiseNNpsk2,
@@ -21,7 +111,9 @@ func Send(_ni *NetInfo, _secret []byte, _msg string) {
 		return
 	}
 	defer client.Close()
-	_, err = client.Write([]byte(_msg))
+	var dp DataPack
+	dp.setText(_msg)
+	_, err = client.Write(dp.GetRaw())
 	if err != nil {
 		fmt.Println("Cannot write on socket: ", err)
 	}
@@ -127,7 +219,9 @@ func readSocket(_srv net.Conn, _data chan []byte, _bufSz int) {
 			}
 			break
 		}
-		_data <- buf
+		var dp DataPack
+		dp.SetFromRaw(buf)
+		_data <- dp.Data
 	}
 	fmt.Println("Transfer completed")
 	_srv.Close()
