@@ -13,10 +13,10 @@ import (
 type DataType byte
 
 const (
-	DATA_TEXT DataType = iota
-	DATA_FILE
-	DATA_PROBE
-	DATA_NONE
+	DATA_TEXT  DataType = 't'
+	DATA_FILE  DataType = 'f'
+	DATA_PROBE DataType = 'p'
+	DATA_NONE  DataType = 'n'
 )
 
 type DataHeader struct {
@@ -78,7 +78,7 @@ func (dh *DataHeader) getFileName(_d []byte) (_fn string, err error) {
 		err = errors.New("malformed data")
 		return
 	}
-	_fn = string(_d[2:(int(dh.szFileName) + 1)])
+	_fn = string(_d[2:(int(dh.szFileName) + 2)])
 	err = nil
 	return
 }
@@ -95,6 +95,13 @@ func (dh *DataHeader) GetRaw() []byte {
 	switch dh.dataType {
 	case DATA_TEXT:
 		h := []byte{byte(DATA_TEXT)}
+		return h
+	case DATA_FILE:
+		h := []byte{byte(DATA_FILE), dh.szFileName}
+		h = append(h, []byte(dh.fileName)...)
+		return h
+	case DATA_PROBE:
+		h := []byte{byte(DATA_PROBE)}
 		return h
 	default:
 		h := []byte{byte(DATA_NONE)}
@@ -139,24 +146,29 @@ func (dp *DataPack) LoadFile(_pth string) (err error) {
 
 func (dp *DataPack) SetFromRaw(_d []byte) {
 	if _d == nil || len(_d) < 1 {
+		fmt.Println("Data format: null")
 		dp.Header.dataType = DATA_NONE
 		return
 	}
 	switch _d[0] {
 	case byte(DATA_PROBE):
+		fmt.Println("Data format: probe")
 		dp.Header.dataType = DATA_PROBE
 		return
 	case byte(DATA_TEXT):
+		fmt.Println("Data format: text")
 		dp.Header.dataType = DATA_TEXT
 		dp.Data = _d[1:]
 		return
 	case byte(DATA_FILE):
+		fmt.Println("Data format: file")
 		dp.Header.SetFromData(_d)
 		if dp.Header.dataType == DATA_NONE {
 			return
 		}
-		dp.Data = _d[int((dp.Header.szFileName)+1):]
+		dp.Data = _d[int((dp.Header.szFileName)+2):]
 	default:
+		fmt.Println("Data format: unknown (", string(_d[0]), ")")
 		dp.Header.dataType = DATA_NONE
 		return
 	}
@@ -206,6 +218,23 @@ func SendText(_ni *NetInfo, _secret []byte, _msg string) {
 	var dp DataPack
 	dp.SetText(_msg)
 	SendDataPack(_ni, _secret, &dp)
+}
+
+func SendFile(_ni *NetInfo, _secret []byte, _fName string, _d []byte) {
+	var dp DataPack
+	dp.SetFile(_fName, _d)
+	SendDataPack(_ni, _secret, &dp)
+}
+
+func SendFilePath(_ni *NetInfo, _secret []byte, _pth string) error {
+	var dp DataPack
+	err := dp.LoadFile(_pth)
+	if err != nil {
+		fmt.Println("Cannot send file: ", err)
+		return err
+	}
+	SendDataPack(_ni, _secret, &dp)
+	return err
 }
 
 //Listener---

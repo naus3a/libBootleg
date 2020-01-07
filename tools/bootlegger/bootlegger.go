@@ -37,8 +37,8 @@ type CliFlags struct {
 	data         string
 	curMode      ToolMode
 	curSecAction SecretAction
+	dataType     libBootleg.DataType
 	bQr          bool
-	bFile        bool
 }
 
 func (cf *CliFlags) setup() {
@@ -49,7 +49,7 @@ func (cf *CliFlags) setup() {
 
 		fmt.Printf("Modes:\n")
 		fmt.Printf("  send [yourtext]\n")
-		fmt.Printf("  trnsfer [path/to/file]")
+		fmt.Printf("  transfer [path/to/file]")
 		fmt.Printf("\tsend data to a receiver\n")
 		fmt.Printf("  receive\n")
 		fmt.Printf("\tlisten for data from a sender\n")
@@ -130,13 +130,13 @@ func (cf *CliFlags) parse() {
 		case "send":
 			if cf.parseSenderData(args, i) {
 				cf.curMode = MODE_SENDER
-				cf.bFile = false
+				cf.dataType = libBootleg.DATA_TEXT
 			}
 			i = len(args) + 2
 		case "transfer":
 			if cf.parseTransferData(args, i) {
 				cf.curMode = MODE_SENDER
-				cf.bFile = true
+				cf.dataType = libBootleg.DATA_FILE
 			}
 			i = len(args) + 2
 		case "receive":
@@ -318,7 +318,14 @@ func runSender(cf *CliFlags) {
 	if err != nil {
 		return
 	}
-	libBootleg.SendText(&ni, s, cf.data)
+	switch cf.dataType {
+	case libBootleg.DATA_TEXT:
+		libBootleg.SendText(&ni, s, cf.data)
+	case libBootleg.DATA_FILE:
+		libBootleg.SendFilePath(&ni, s, cf.data)
+	default:
+		break
+	}
 }
 
 //---sender
