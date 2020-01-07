@@ -169,7 +169,7 @@ func makeConfig(_secret []byte) libdisco.Config {
 	}
 }
 
-func Send(_ni *NetInfo, _secret []byte, _msg string) {
+func SendDataPack(_ni *NetInfo, _secret []byte, _dp *DataPack) {
 	cc := makeConfig(_secret)
 	client, err := libdisco.Dial("tcp", _ni.String(), &cc)
 	if err != nil {
@@ -177,12 +177,16 @@ func Send(_ni *NetInfo, _secret []byte, _msg string) {
 		return
 	}
 	defer client.Close()
-	var dp DataPack
-	dp.setText(_msg)
-	_, err = client.Write(dp.GetRaw())
+	_, err = client.Write(_dp.GetRaw())
 	if err != nil {
 		fmt.Println("Cannot write on socket: ", err)
 	}
+}
+
+func SendText(_ni *NetInfo, _secret []byte, _msg string) {
+	var dp DataPack
+	dp.setText(_msg)
+	SendDataPack(_ni, _secret, &dp)
 }
 
 //Listener---
