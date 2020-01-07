@@ -6,6 +6,7 @@ import (
 	"github.com/mimoo/disco/libdisco"
 	"io/ioutil"
 	"net"
+	"path/filepath"
 )
 
 //header---
@@ -109,13 +110,31 @@ type DataPack struct {
 	Data   []byte
 }
 
-func (dp *DataPack) setProbe() {
+func (dp *DataPack) SetProbe() {
 	dp.Header.setProbe()
 }
 
-func (dp *DataPack) setText(_txt string) {
+func (dp *DataPack) SetText(_txt string) {
 	dp.Header.setText()
 	dp.Data = []byte(_txt)
+}
+
+func (dp *DataPack) SetFile(_fName string, _d []byte) {
+	dp.Header.setFile(_fName)
+	dp.Data = _d
+}
+
+func (dp *DataPack) LoadFile(_pth string) (err error) {
+	if !DoesFileExist(_pth) {
+		err = errors.New("file does not exist")
+		return
+	}
+	dp.Data, err = ioutil.ReadFile(_pth)
+	if err != nil {
+		return
+	}
+	dp.Header.setFile(filepath.Base(_pth))
+	return
 }
 
 func (dp *DataPack) SetFromRaw(_d []byte) {
@@ -185,7 +204,7 @@ func SendDataPack(_ni *NetInfo, _secret []byte, _dp *DataPack) {
 
 func SendText(_ni *NetInfo, _secret []byte, _msg string) {
 	var dp DataPack
-	dp.setText(_msg)
+	dp.SetText(_msg)
 	SendDataPack(_ni, _secret, &dp)
 }
 
