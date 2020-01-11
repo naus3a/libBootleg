@@ -53,6 +53,8 @@ func (cf *CliFlags) setup() {
 		fmt.Printf("\tsend data to a receiver\n")
 		fmt.Printf("  receive\n")
 		fmt.Printf("\tlisten for data from a sender\n")
+		fmt.Printf("  discover\n")
+		fmt.Printf("\tdiscover listening bootleggers\n")
 		fmt.Printf("  secret [action]\n")
 		fmt.Printf("\tmake: forge (make random if you don't specify a token), print and save new token\n")
 		fmt.Printf("\tclear: delete saved token\n")
@@ -138,6 +140,10 @@ func (cf *CliFlags) parse() {
 				cf.curMode = MODE_SENDER
 				cf.dataType = libBootleg.DATA_FILE
 			}
+			i = len(args) + 2
+		case "discover":
+			cf.curMode = MODE_SENDER
+			cf.dataType = libBootleg.DATA_PROBE
 			i = len(args) + 2
 		case "receive":
 			cf.curMode = MODE_RECEIVER
@@ -323,6 +329,8 @@ func runSender(cf *CliFlags) {
 		libBootleg.SendText(&ni, s, cf.data)
 	case libBootleg.DATA_FILE:
 		libBootleg.SendFilePath(&ni, s, cf.data)
+	case libBootleg.DATA_PROBE:
+		libBootleg.SendProbe(&ni, s)
 	default:
 		break
 	}

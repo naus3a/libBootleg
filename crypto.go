@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mimoo/disco/libdisco"
+	"io"
 	"io/ioutil"
 	"net"
 	"path/filepath"
@@ -200,30 +201,31 @@ func makeConfig(_secret []byte) libdisco.Config {
 	}
 }
 
-func SendDataPack(_ni *NetInfo, _secret []byte, _dp *DataPack) {
+func SendDataPack(_ni *NetInfo, _secret []byte, _dp *DataPack) error {
 	cc := makeConfig(_secret)
 	client, err := libdisco.Dial("tcp", _ni.String(), &cc)
 	if err != nil {
 		fmt.Println("Cannot connect to server: ", err)
-		return
+		return err
 	}
 	defer client.Close()
 	_, err = client.Write(_dp.GetRaw())
 	if err != nil {
 		fmt.Println("Cannot write on socket: ", err)
 	}
+	return err
 }
 
-func SendText(_ni *NetInfo, _secret []byte, _msg string) {
+func SendText(_ni *NetInfo, _secret []byte, _msg string) error {
 	var dp DataPack
 	dp.SetText(_msg)
-	SendDataPack(_ni, _secret, &dp)
+	return SendDataPack(_ni, _secret, &dp)
 }
 
-func SendFile(_ni *NetInfo, _secret []byte, _fName string, _d []byte) {
+func SendFile(_ni *NetInfo, _secret []byte, _fName string, _d []byte) error {
 	var dp DataPack
 	dp.SetFile(_fName, _d)
-	SendDataPack(_ni, _secret, &dp)
+	return SendDataPack(_ni, _secret, &dp)
 }
 
 func SendFilePath(_ni *NetInfo, _secret []byte, _pth string) error {
@@ -237,16 +239,34 @@ func SendFilePath(_ni *NetInfo, _secret []byte, _pth string) error {
 	return err
 }
 
+func SendProbe(_ni *NetInfo, _secret []byte) error {
+	var dp DataPack
+	dp.SetProbe()
+	return SendDataPack(_ni, _secret, &dp)
+}
+
 //Listener---
 type Listener struct {
 	netInfo    NetInfo
 	cc         libdisco.Config
 	listener   net.Listener
+	server     net.Conn
 	BufSize    int
 	bListening bool
 	bNetInfo   bool
 	bProtocol  bool
 	bListener  bool
+}
+
+func (_l *Listener) resetFlags() {
+	_l.resetListeningFlags()
+	_l.bNetInfo = false
+	_l.bProtocol = false
+}
+
+func (_l *Listener) resetListeningFlags() {
+	_l.bListener = false
+	_l.bListening = false
 }
 
 func (_l Listener) IsListening() bool {
@@ -282,6 +302,7 @@ func (_l *Listener) SetSecret(_secret []byte) {
 }
 
 func (_l *Listener) StartListening(_data chan DataPack) bool {
+	_l.resetListeningFlags()
 	if !_l.HasNetInfo() || !_l.HasSecret() {
 		fmt.Println("Listener NOT ready: cannot setup")
 		return false
@@ -294,6 +315,8 @@ func (_l *Listener) StartListening(_data chan DataPack) bool {
 	if err != nil {
 		fmt.Println("cannot setup listener: ", err)
 	} else {
+		_l.bListener = true
+		_l.bListening = true
 		fmt.Println("Listener setup and listening on ", _l.netInfo, "...")
 		go loopListener(_l, _data)
 	}
@@ -301,6 +324,7 @@ func (_l *Listener) StartListening(_data chan DataPack) bool {
 }
 
 func (_l *Listener) SetupAndListen(_ip string, _port int, _secret []byte, _data chan DataPack) bool {
+	_l.resetFlags()
 	_l.SetNetInfo(_ip, _port)
 	_l.SetSecret(_secret)
 	return _l.StartListening(_data)
@@ -310,29 +334,30 @@ func (_l *Listener) StopListening() {
 	if !_l.IsListening() {
 		return
 	}
-	//TODO
+	_l.server.Close()
+	_l.resetListeningFlags()
 }
 
 func loopListener(_l *Listener, _data chan DataPack) {
 	for {
 		var err error
-		server, err := _l.listener.Accept()
+		_l.server, err = _l.listener.Accept()
 		if err != nil {
 			fmt.Println("Listener cannot accept: ", err)
-			server.Close()
+			_l.StopListening()
 			continue
 		}
-		fmt.Println("Listener accepted connection from ", server.RemoteAddr())
-		go readSocket(server, _data, _l.BufSize)
+		fmt.Println("Listener accepted connection from ", _l.server.RemoteAddr())
+		go readSocket(_l, _data, _l.BufSize)
 	}
 }
 
-func readSocket(_srv net.Conn, _data chan DataPack, _bufSz int) {
+func readSocket(_l *Listener, _data chan DataPack, _bufSz int) {
 	buf := make([]byte, _bufSz)
 	for {
-		_, err := _srv.Read(buf)
+		_, err := _l.server.Read(buf)
 		if err != nil {
-			if err.Error() != "EOF" {
+			if err != io.EOF {
 				fmt.Println("Listener cannot read on socket", err)
 			}
 			break
@@ -342,7 +367,7 @@ func readSocket(_srv net.Conn, _data chan DataPack, _bufSz int) {
 		_data <- dp
 	}
 	fmt.Println("Transfer completed")
-	_srv.Close()
+	_l.StopListening()
 }
 
 //---Listener
