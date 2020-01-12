@@ -354,16 +354,22 @@ func runReceiver(cf *CliFlags) {
 	var l libBootleg.Listener
 	l.BufSize = cf.bufSz
 	l.SetupAndListen(cf.ip, cf.port, s, cData)
-	data = <-cData
-	switch data.Header.GetType() {
-	case libBootleg.DATA_TEXT:
-		fmt.Println(string(data.Data))
-	case libBootleg.DATA_FILE:
-		err = data.SaveFile()
-		if err != nil {
-			fmt.Println("Cannot save file: ", err)
-		} else {
-			fmt.Println("File saved to ", data.Header.GetFileName())
+	var bLoop bool
+	bLoop = true
+	for bLoop {
+		data = <-cData
+		switch data.Header.GetType() {
+		case libBootleg.DATA_TEXT:
+			fmt.Println(string(data.Data))
+			bLoop = false
+		case libBootleg.DATA_FILE:
+			err = data.SaveFile()
+			if err != nil {
+				fmt.Println("Cannot save file: ", err)
+			} else {
+				fmt.Println("File saved to ", data.Header.GetFileName())
+			}
+			bLoop = false
 		}
 	}
 }
