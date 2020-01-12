@@ -73,8 +73,13 @@ func (dh *DataHeader) SetFromData(_d []byte) {
 	case byte(DATA_PROBE):
 		dh.dataType = DATA_PROBE
 	case byte(DATA_TEXT):
+		var err error
 		dh.dataType = DATA_TEXT
-
+		dh.szData, err = dh.getDataSz(_d)
+		if err != nil {
+			dh.dataType = DATA_NONE
+			return
+		}
 	case byte(DATA_FILE):
 		var err error
 		dh.dataType = DATA_FILE
@@ -84,6 +89,7 @@ func (dh *DataHeader) SetFromData(_d []byte) {
 			return
 		}
 		dh.fileName, err = dh.getFileName(_d)
+		dh.szData, err = dh.getDataSz(_d)
 		if err != nil {
 			dh.dataType = DATA_NONE
 			return
@@ -210,12 +216,12 @@ func (dp *DataPack) SetProbe() {
 }
 
 func (dp *DataPack) SetText(_txt string) {
-	dp.Header.setText()
+	dp.Header.setTextWithSize(uint32(len(_txt)))
 	dp.Data = []byte(_txt)
 }
 
 func (dp *DataPack) SetFile(_fName string, _d []byte) {
-	dp.Header.setFile(_fName)
+	dp.Header.setFileWithSize(_fName, uint32(len(_d)))
 	dp.Data = _d
 }
 
