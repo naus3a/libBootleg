@@ -112,6 +112,19 @@ func (dh *DataHeader) GetRaw() []byte {
 	}
 }
 
+func Byte2DataType(_byte byte) DataType {
+	switch _byte {
+	case byte(DATA_TEXT):
+		return DATA_TEXT
+	case byte(DATA_FILE):
+		return DATA_FILE
+	case byte(DATA_PROBE):
+		return DATA_PROBE
+	default:
+		return DATA_NONE
+	}
+}
+
 //---header
 
 //data---
@@ -379,6 +392,7 @@ func (_l *Listener) StopListening() {
 }
 
 func loopListener(_l *Listener, _data chan DataPack) {
+	//infinite loop to accept multiple clients
 	for {
 		var err error
 		_l.server, err = _l.listener.Accept()
@@ -393,9 +407,21 @@ func loopListener(_l *Listener, _data chan DataPack) {
 }
 
 func readSocket(_l *Listener, _data chan DataPack, _bufSz int) {
+	var nPkts int
+	var dt DataType
+	nPkts = 0
+	dt = DATA_NONE
 	buf := make([]byte, _bufSz)
+	//infinite loop listening to data coming from 1 client
 	for {
 		_, err := _l.server.Read(buf)
+		if nPkts == 0 {
+			dt = Byte2DataType(buf[0])
+			if dt == DATA_NONE {
+				err = errors.New("malformed data")
+			}
+		}
+		nPkts++
 		if err != nil {
 			if err != io.EOF {
 				fmt.Println("Listener cannot read on socket", err)
