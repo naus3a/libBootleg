@@ -67,7 +67,6 @@ func (dh *DataHeader) setFileWithSize(_fName string, _szData uint32) {
 	dh.szData = _szData
 }
 
-//todo
 func (dh *DataHeader) SetFromData(_d []byte) {
 	switch _d[0] {
 	case byte(DATA_PROBE):
@@ -150,6 +149,20 @@ func (dh *DataHeader) GetType() DataType {
 
 func (dh *DataHeader) GetFileName() string {
 	return dh.fileName
+}
+
+func (dh *DataHeader) GetSize() int {
+	switch dh.dataType {
+	case DATA_NONE:
+		return 0
+	case DATA_PROBE:
+		return 1
+	case DATA_TEXT:
+		return 6
+	case DATA_FILE:
+		return (6 + int(dh.szFileName))
+	}
+	return 0
 }
 
 func (dh *DataHeader) GetRaw() []byte {
@@ -485,8 +498,11 @@ func loopListener(_l *Listener, _data chan DataPack) {
 }
 
 func readSocket(_l *Listener, _data chan DataPack, _bufSz int) {
+	//var tmp []byte
 	var nPkts int
+	//var bIdx int
 	var dt DataType
+	//bIdx = 0
 	nPkts = 0
 	dt = DATA_NONE
 	buf := make([]byte, _bufSz)
@@ -494,11 +510,32 @@ func readSocket(_l *Listener, _data chan DataPack, _bufSz int) {
 	for {
 		_, err := _l.server.Read(buf)
 		if nPkts == 0 {
+			var _sz int
+			_sz = 1
 			dt = Byte2DataType(buf[0])
-			if dt == DATA_NONE {
+			switch dt {
+			case DATA_TEXT:
+				_sz += 4
+				var _n uint32
+				_n, err = Bytes2Uint32(buf[1:5])
+				_sz += int(_n)
+			case DATA_FILE:
+				_szName := int(buf[1])
+				var _szData uint32
+				_szData, err = Bytes2Uint32(buf[2+_szName : 4])
+				_sz += 1
+				_sz += _szName
+				_sz += 4
+				_sz += int(_szData)
+			case DATA_NONE:
 				err = errors.New("malformed data")
 			}
+			//tmp = make([]byte, _sz)
+			//copyBytes(buf, tmp, 0, len(buf))
+		} else {
+
 		}
+
 		nPkts++
 		if err != nil {
 			if err != io.EOF {
@@ -512,6 +549,23 @@ func readSocket(_l *Listener, _data chan DataPack, _bufSz int) {
 	}
 	fmt.Println("Transfer completed")
 	_l.StopListening()
+}
+
+func copyBytes(_src []byte, _dst []byte, _from int) error {
+	if _from < 0 || (_from >= len(_src)) {
+		return errors.New("OUB")
+	}
+	_to := _from + len(_src)
+	if _to >= len(_dst) {
+		_to = len(_src) - 1
+	}
+	var j int
+	j = 0
+	for i := _from; i <= _to; i++ {
+		_dst[i] = _src[j]
+		j++
+	}
+	return nil
 }
 
 //---Listener

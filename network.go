@@ -24,8 +24,8 @@ func GetLocalIps() []string {
 
 func GetOutboundIpInfo() (net.IP, error) {
 	conn, err := net.Dial("udp", "8.8.8.8:8080")
-	defer conn.Close()
 	if err == nil {
+		defer conn.Close()
 		return conn.LocalAddr().(*net.UDPAddr).IP, err
 	}
 	return nil, err
