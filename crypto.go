@@ -498,7 +498,7 @@ func loopListener(_l *Listener, _data chan DataPack) {
 }
 
 func readSocket(_l *Listener, _data chan DataPack, _bufSz int) {
-	//var tmp []byte
+	var transfer []byte
 	var nPkts int
 	//var bIdx int
 	var dt DataType
@@ -510,28 +510,7 @@ func readSocket(_l *Listener, _data chan DataPack, _bufSz int) {
 	for {
 		_, err := _l.server.Read(buf)
 		if nPkts == 0 {
-			var _sz int
-			_sz = 1
-			dt = Byte2DataType(buf[0])
-			switch dt {
-			case DATA_TEXT:
-				_sz += 4
-				var _n uint32
-				_n, err = Bytes2Uint32(buf[1:5])
-				_sz += int(_n)
-			case DATA_FILE:
-				_szName := int(buf[1])
-				var _szData uint32
-				_szData, err = Bytes2Uint32(buf[2+_szName : 4])
-				_sz += 1
-				_sz += _szName
-				_sz += 4
-				_sz += int(_szData)
-			case DATA_NONE:
-				err = errors.New("malformed data")
-			}
-			//tmp = make([]byte, _sz)
-			//copyBytes(buf, tmp, 0, len(buf))
+			err = parse1stPacket(buf, transfer, &dt)
 		} else {
 
 		}
@@ -549,6 +528,36 @@ func readSocket(_l *Listener, _data chan DataPack, _bufSz int) {
 	}
 	fmt.Println("Transfer completed")
 	_l.StopListening()
+}
+
+func parse1stPacket(_buf []byte, _transfer []byte, _dt *DataType) (err error) {
+	var szTransfer int
+	szTransfer = 1
+	*_dt = Byte2DataType(_buf[0])
+	switch *_dt {
+	case DATA_TEXT:
+		szTransfer += 4
+		var szData uint32
+		szData, err = Bytes2Uint32(_buf[1:5])
+		szTransfer += int(szData)
+	case DATA_FILE:
+		szName := int(_buf[1])
+		var szData uint32
+		szData, err = Bytes2Uint32(_buf[2+szName : 4])
+		szTransfer += 1
+		szTransfer += szName
+		szTransfer += 4
+		szTransfer += int(szData)
+	case DATA_NONE:
+		err = errors.New("malformed data")
+	}
+	if szTransfer > len(_buf) {
+		fmt.Println("does not fit")
+	} else {
+		_transfer = make([]byte, szTransfer)
+		_transfer = _buf[0:len(_buf)]
+	}
+	return
 }
 
 func copyBytes(_src []byte, _dst []byte, _from int) error {
