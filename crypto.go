@@ -67,8 +67,9 @@ func (dh *DataHeader) setFileWithSize(_fName string, _szData uint32) {
 	dh.szData = _szData
 }
 
-func (dh *DataHeader) SetFromData(_d []byte) {
-	switch _d[0] {
+func (dh *DataHeader) SetFromData(_d *[]byte) {
+
+	switch (*_d)[0] {
 	case byte(DATA_PROBE):
 		dh.dataType = DATA_PROBE
 	case byte(DATA_TEXT):
@@ -98,43 +99,43 @@ func (dh *DataHeader) SetFromData(_d []byte) {
 	}
 }
 
-func (dh *DataHeader) getFileNameSz(_d []byte) (_sz byte, err error) {
-	if len(_d) < 2 {
+func (dh *DataHeader) getFileNameSz(_d *[]byte) (_sz byte, err error) {
+	if len(*_d) < 2 {
 		err = errors.New("malformed data")
 		return
 	}
-	_sz = _d[1]
+	_sz = (*_d)[1]
 	err = nil
 	return
 }
 
-func (dh *DataHeader) getFileName(_d []byte) (_fn string, err error) {
-	if len(_d) < (2 + int(dh.szFileName)) {
+func (dh *DataHeader) getFileName(_d *[]byte) (_fn string, err error) {
+	if len(*_d) < (2 + int(dh.szFileName)) {
 		err = errors.New("malformed data")
 		return
 	}
-	_fn = string(_d[2:(int(dh.szFileName) + 2)])
+	_fn = string((*_d)[2:(int(dh.szFileName) + 2)])
 	err = nil
 	return
 }
 
-func (dh *DataHeader) getDataSz(_d []byte) (_sz uint32, err error) {
-	dt := Byte2DataType(_d[0])
+func (dh *DataHeader) getDataSz(_d *[]byte) (_sz uint32, err error) {
+	dt := Byte2DataType((*_d)[0])
 	switch dt {
 	case DATA_TEXT:
-		if len(_d) < 6 {
+		if len(*_d) < 6 {
 			_sz = 0
 			err = errors.New("malformed data")
 		} else {
-			_sz, err = Bytes2Uint32(_d[1:5])
+			_sz, err = Bytes2Uint32((*_d)[1:5])
 		}
 	case DATA_FILE:
 		idx := 2 + int(dh.szFileName) + 2 + 1
-		if len(_d) < idx {
+		if len(*_d) < idx {
 			_sz = 0
 			err = errors.New("malformed data")
 		} else {
-			_sz, err = Bytes2Uint32(_d[idx : idx+4])
+			_sz, err = Bytes2Uint32((*_d)[idx : idx+4])
 		}
 	default:
 		_sz = 0
@@ -251,13 +252,14 @@ func (dp *DataPack) LoadFile(_pth string) (err error) {
 	return
 }
 
-func (dp *DataPack) SetFromRaw(_d []byte) {
-	if _d == nil || len(_d) < 1 {
+func (dp *DataPack) SetFromRaw(_d *[]byte) {
+	if *_d == nil || len(*_d) < 1 {
 		fmt.Println("Data format: null")
 		dp.Header.dataType = DATA_NONE
 		return
 	}
-	switch _d[0] {
+
+	switch (*_d)[0] {
 	case byte(DATA_PROBE):
 		fmt.Println("Data format: probe")
 		dp.Header.dataType = DATA_PROBE
@@ -265,7 +267,7 @@ func (dp *DataPack) SetFromRaw(_d []byte) {
 	case byte(DATA_TEXT):
 		fmt.Println("Data format: text")
 		dp.Header.dataType = DATA_TEXT
-		dp.Data = _d[1:]
+		dp.Data = (*_d)[1:]
 		return
 	case byte(DATA_FILE):
 		fmt.Println("Data format: file")
@@ -273,9 +275,11 @@ func (dp *DataPack) SetFromRaw(_d []byte) {
 		if dp.Header.dataType == DATA_NONE {
 			return
 		}
-		dp.Data = _d[int((dp.Header.szFileName)+2):]
+		var iFrom int
+		iFrom = 2 + int(dp.Header.szFileName) + 4
+		dp.Data = (*_d)[iFrom:]
 	default:
-		fmt.Println("Data format: unknown (", string(_d[0]), ")")
+		fmt.Println("Data format: unknown (", string((*_d)[0]), ")")
 		dp.Header.dataType = DATA_NONE
 		return
 	}
@@ -500,6 +504,7 @@ func loopListener(_l *Listener, _data chan DataPack) {
 func readSocket(_l *Listener, _data chan DataPack, _bufSz int) {
 	var transfer []byte
 	var nPkts int
+	var totPkts int
 	var bIdx int
 	var dt DataType
 	bIdx = 0
@@ -511,12 +516,15 @@ func readSocket(_l *Listener, _data chan DataPack, _bufSz int) {
 		_, err := _l.server.Read(buf)
 
 		if nPkts == 0 {
-			err = parse1stPacket(buf, transfer, &dt, &bIdx)
+			err = parse1stPacket(&buf, &transfer, &dt, &bIdx, &totPkts)
 		} else {
-			appendData(buf, transfer, &bIdx)
+			appendData(&buf, &transfer, &bIdx)
 		}
 
 		nPkts++
+		if nPkts >= totPkts {
+			break
+		}
 		if err != nil {
 			if err != io.EOF {
 				fmt.Println("Listener cannot read on socket", err)
@@ -526,28 +534,27 @@ func readSocket(_l *Listener, _data chan DataPack, _bufSz int) {
 	}
 
 	var dp DataPack
-	dp.SetFromRaw(buf)
+	dp.SetFromRaw(&transfer)
 	_data <- dp
 
 	fmt.Println("Transfer completed")
 	_l.StopListening()
 }
 
-func parse1stPacket(_buf []byte, _transfer []byte, _dt *DataType, _bIdx *int) (err error) {
-	fmt.Println("CIPPA 1st")
+func parse1stPacket(_buf *[]byte, _transfer *[]byte, _dt *DataType, _bIdx *int, _totPkts *int) (err error) {
 	var szTransfer int
 	szTransfer = 1
-	*_dt = Byte2DataType(_buf[0])
+	*_dt = Byte2DataType((*_buf)[0])
 	switch *_dt {
 	case DATA_TEXT:
 		szTransfer += 4
 		var szData uint32
-		szData, err = Bytes2Uint32(_buf[1:5])
+		szData, err = Bytes2Uint32((*_buf)[1:5])
 		szTransfer += int(szData)
 	case DATA_FILE:
-		szName := int(_buf[1])
+		szName := int((*_buf)[1])
 		var szData uint32
-		szData, err = Bytes2Uint32(_buf[2+szName : 2+szName+4])
+		szData, err = Bytes2Uint32((*_buf)[2+szName : 2+szName+4])
 		szTransfer += 1
 		szTransfer += szName
 		szTransfer += 4
@@ -556,23 +563,36 @@ func parse1stPacket(_buf []byte, _transfer []byte, _dt *DataType, _bIdx *int) (e
 		err = errors.New("malformed data")
 	}
 
-	_transfer = make([]byte, szTransfer)
+	*_totPkts = calcNumPkts(len(*_buf), szTransfer)
 
-	if szTransfer >= len(_buf) {
+	if szTransfer >= len(*_buf) {
+		*_transfer = make([]byte, szTransfer)
 		appendData(_buf, _transfer, _bIdx)
 	} else {
-		_transfer = _buf[0:len(_buf)]
-		*_bIdx = len(_transfer)
+		*_transfer = (*_buf)[0:len(*_buf)]
+		*_bIdx = len(*_transfer)
 	}
 	return
 }
 
-func appendData(_buf []byte, _transfer []byte, _bIdx *int) {
-	//check if it fits
-	//lIdx := *_bIdx + len(_buf)
-
-	_transfer = append(_transfer, _buf...)
-	*_bIdx += len(_buf)
+func calcNumPkts(_szBuf int, _szTransfer int) int {
+	var n int
+	var m int
+	n = _szTransfer / _szBuf
+	m = _szTransfer % _szBuf
+	if m > 0 {
+		n++
+	}
+	return n
 }
 
-//---Listener
+func appendData(_buf *[]byte, _transfer *[]byte, _bIdx *int) {
+	for i := 0; i < len(*_buf); i++ {
+		if *_bIdx < len(*_transfer) {
+			(*_transfer)[*_bIdx] = (*_buf)[i]
+			*_bIdx++
+		}
+	}
+}
+
+//---Listener:w
