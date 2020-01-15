@@ -247,7 +247,7 @@ func (dp *DataPack) LoadFile(_pth string) (err error) {
 	if err != nil {
 		return
 	}
-	dp.Header.setFile(filepath.Base(_pth))
+	dp.Header.setFileWithSize(filepath.Base(_pth), uint32(len(dp.Data)))
 	return
 }
 
@@ -500,19 +500,20 @@ func loopListener(_l *Listener, _data chan DataPack) {
 func readSocket(_l *Listener, _data chan DataPack, _bufSz int) {
 	var transfer []byte
 	var nPkts int
-	//var bIdx int
+	var bIdx int
 	var dt DataType
-	//bIdx = 0
+	bIdx = 0
 	nPkts = 0
 	dt = DATA_NONE
 	buf := make([]byte, _bufSz)
 	//infinite loop listening to data coming from 1 client
 	for {
 		_, err := _l.server.Read(buf)
-		if nPkts == 0 {
-			err = parse1stPacket(buf, transfer, &dt)
-		} else {
 
+		if nPkts == 0 {
+			err = parse1stPacket(buf, transfer, &dt, &bIdx)
+		} else {
+			appendData(buf, transfer, &bIdx)
 		}
 
 		nPkts++
@@ -522,15 +523,18 @@ func readSocket(_l *Listener, _data chan DataPack, _bufSz int) {
 			}
 			break
 		}
-		var dp DataPack
-		dp.SetFromRaw(buf)
-		_data <- dp
 	}
+
+	var dp DataPack
+	dp.SetFromRaw(buf)
+	_data <- dp
+
 	fmt.Println("Transfer completed")
 	_l.StopListening()
 }
 
-func parse1stPacket(_buf []byte, _transfer []byte, _dt *DataType) (err error) {
+func parse1stPacket(_buf []byte, _transfer []byte, _dt *DataType, _bIdx *int) (err error) {
+	fmt.Println("CIPPA 1st")
 	var szTransfer int
 	szTransfer = 1
 	*_dt = Byte2DataType(_buf[0])
@@ -543,7 +547,7 @@ func parse1stPacket(_buf []byte, _transfer []byte, _dt *DataType) (err error) {
 	case DATA_FILE:
 		szName := int(_buf[1])
 		var szData uint32
-		szData, err = Bytes2Uint32(_buf[2+szName : 4])
+		szData, err = Bytes2Uint32(_buf[2+szName : 2+szName+4])
 		szTransfer += 1
 		szTransfer += szName
 		szTransfer += 4
@@ -551,30 +555,24 @@ func parse1stPacket(_buf []byte, _transfer []byte, _dt *DataType) (err error) {
 	case DATA_NONE:
 		err = errors.New("malformed data")
 	}
-	if szTransfer > len(_buf) {
-		fmt.Println("does not fit")
+
+	_transfer = make([]byte, szTransfer)
+
+	if szTransfer >= len(_buf) {
+		appendData(_buf, _transfer, _bIdx)
 	} else {
-		_transfer = make([]byte, szTransfer)
 		_transfer = _buf[0:len(_buf)]
+		*_bIdx = len(_transfer)
 	}
 	return
 }
 
-func copyBytes(_src []byte, _dst []byte, _from int) error {
-	if _from < 0 || (_from >= len(_src)) {
-		return errors.New("OUB")
-	}
-	_to := _from + len(_src)
-	if _to >= len(_dst) {
-		_to = len(_src) - 1
-	}
-	var j int
-	j = 0
-	for i := _from; i <= _to; i++ {
-		_dst[i] = _src[j]
-		j++
-	}
-	return nil
+func appendData(_buf []byte, _transfer []byte, _bIdx *int) {
+	//check if it fits
+	//lIdx := *_bIdx + len(_buf)
+
+	_transfer = append(_transfer, _buf...)
+	*_bIdx += len(_buf)
 }
 
 //---Listener
