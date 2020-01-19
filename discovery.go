@@ -30,8 +30,9 @@ func Discover(_ni *NetInfo) error {
 		fmt.Println("Cannot send discovery packet: ", err)
 		return err
 	}
+
 	defer c.Close()
-	for i := 0; i < 5; i++ {
+	for {
 		c.Write(MakeDiscoverPacket())
 		time.Sleep(1 * time.Second)
 	}
@@ -59,8 +60,11 @@ func ReceiveProbes(_ni *NetInfo) error {
 	for {
 		b := make([]byte, 1)
 		n, src, err := l.ReadFromUDP(b)
-		if err != nil {
-			fmt.Println(n, " ", src)
+		if err == nil {
+			fmt.Println(n, " ", src, " ", err)
+			sendDiscoveryReply(src.IP.String())
+		} else {
+			fmt.Println("discovery error ", err)
 		}
 	}
 	return nil
@@ -71,6 +75,50 @@ func ReceiveProbesDefault() error {
 	return ReceiveProbes(&m)
 }
 
-func ReceiveReply() error {
+func ReceiveReply(_ip string) ([]string, error) {
+	var ips []string
+	var ni NetInfo
+	ni.Ip = _ip
+	ni.Port = 9999
+	a, err := ni.UDPAddr()
+	if err != nil {
+		fmt.Println("Malformed reply  address: ", err)
+		return ips, err
+	}
+	l, err := net.ListenUDP("udp", a)
+	if err != nil {
+		fmt.Println("cannot start receiver: ", err)
+		return ips, err
+	}
+	for {
+		b := make([]byte, 1)
+		_, src, err := l.ReadFromUDP(b)
+		if err == nil {
+			ips = append(ips, src.IP.String())
+			fmt.Println("\t", ips[len(ips)-1])
+		}
+	}
+	return ips, nil
+}
+
+func sendDiscoveryReply(_ip string) error {
+	var ni NetInfo
+	ni.Ip = _ip
+	ni.Port = 9999
+	a, err := ni.UDPAddr()
+	if err != nil {
+		fmt.Println("Malformed reply  address: ", err)
+		return err
+	}
+	c, err := net.DialUDP("udp", nil, a)
+	if err != nil {
+		fmt.Println("Cannot send reply packet: ", err)
+		return err
+	}
+	defer c.Close()
+	for i := 0; i < 5; i++ {
+		c.Write(MakeDiscoverPacket())
+		time.Sleep(1 * time.Second)
+	}
 	return nil
 }
