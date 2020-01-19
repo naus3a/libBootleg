@@ -354,6 +354,9 @@ func runReceiver(cf *CliFlags) {
 	var l libBootleg.Listener
 	l.BufSize = cf.bufSz
 	l.SetupAndListen(cf.ip, cf.port, s, cData)
+
+	go libBootleg.ReceiveProbesDefault()
+
 	var bLoop bool
 	bLoop = true
 	for bLoop {

@@ -32,16 +32,6 @@ func GetOutboundIpInfo() (net.IP, error) {
 }
 
 func GetOutboundIp() string {
-	/*var ip string
-	ip = "127.0.0.1"
-	conn, err := net.Dial("udp", "8.8.8.8:8080")
-	if err == nil {
-		ip = conn.LocalAddr().(*net.UDPAddr).IP.String()
-	}
-	if conn != nil {
-		defer conn.Close()
-	}
-	return ip*/
 	ip, err := GetOutboundIpInfo()
 	if err != nil {
 		return "127.0.0.1"
@@ -58,4 +48,8 @@ type NetInfo struct {
 
 func (_ni NetInfo) String() string {
 	return fmt.Sprintf("%v:%v", _ni.Ip, _ni.Port)
+}
+
+func (_ni NetInfo) UDPAddr() (*net.UDPAddr, error) {
+	return net.ResolveUDPAddr("udp", _ni.String())
 }
