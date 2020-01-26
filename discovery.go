@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+//Discoverer ---
+
 type Discoverer struct {
 	bRunning bool
 	cStop    chan struct{}
@@ -41,13 +43,13 @@ func (d *Discoverer) Discover(_ni *NetInfo) error {
 	d.bRunning = true
 	defer c.Close()
 	for {
-		c.Write(MakeDiscoverPacket())
-		time.Sleep(1 * time.Second)
 		select {
 		case <-d.cStop:
 			break
+		default:
+			c.Write(MakeDiscoverPacket())
+			time.Sleep(1 * time.Second)
 		}
-
 	}
 	d.bRunning = false
 	return nil
@@ -76,6 +78,16 @@ func (d *Discoverer) Stop() {
 	}
 	close(d.cStop)
 	d.bRunning = false
+}
+
+//---Discoverer
+
+//DiscoveryListener---
+
+type DiscoveryListener struct {
+	bRunning bool
+	ips      []string
+	CIp      chan string
 }
 
 func ReceiveProbes(_ni *NetInfo) error {
@@ -109,7 +121,7 @@ func ReceiveProbesDefault() error {
 	return ReceiveProbes(&m)
 }
 
-func ReceiveReply(_ip string) ([]string, error) {
+func (dl *DiscoveryListener) ReceiveReply(_ip string) ([]string, error) {
 	var ips []string
 	var ni NetInfo
 	ni.Ip = _ip
@@ -117,22 +129,54 @@ func ReceiveReply(_ip string) ([]string, error) {
 	a, err := ni.UDPAddr()
 	if err != nil {
 		fmt.Println("Malformed reply  address: ", err)
+		dl.bRunning = false
 		return ips, err
 	}
 	l, err := net.ListenUDP("udp", a)
 	if err != nil {
 		fmt.Println("cannot start receiver: ", err)
+		dl.bRunning = false
 		return ips, err
 	}
+	dl.bRunning = true
 	for {
 		b := make([]byte, 1)
 		_, src, err := l.ReadFromUDP(b)
 		if err == nil && !alreadyHasString(&ips, src.IP.String()) {
-			ips = append(ips, src.IP.String())
-			fmt.Println("\t", ips[len(ips)-1])
+			sIp := src.IP.String()
+			ips = append(ips, sIp)
+			dl.CIp <- sIp
 		}
 	}
+	dl.bRunning = false
+	dl.ips = make([]string, len(ips))
+	copy(dl.ips, ips)
 	return ips, nil
+}
+
+func (dl *DiscoveryListener) IsRunning() bool {
+	return dl.bRunning
+}
+
+func (dl *DiscoveryListener) GetFoundIps() []string {
+	return dl.ips
+}
+
+func (dl *DiscoveryListener) Start(_ip string) {
+	if dl.IsRunning() {
+		return
+	}
+	dl.CIp = make(chan string)
+	dl.ips = nil
+	go dl.ReceiveReply(_ip)
+}
+
+func (dl *DiscoveryListener) Stop() {
+	if !dl.IsRunning() {
+		return
+	}
+	dl.bRunning = false
+	close(dl.CIp)
 }
 
 func alreadyHasString(_ss *[]string, _s string) bool {
@@ -165,3 +209,5 @@ func sendDiscoveryReply(_ip string) error {
 	}
 	return nil
 }
+
+//---DiscoveryListener

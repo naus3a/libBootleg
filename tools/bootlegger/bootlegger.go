@@ -331,8 +331,14 @@ func runSender(cf *CliFlags) {
 		libBootleg.SendFilePath(&ni, s, cf.data)
 	case libBootleg.DATA_PROBE:
 		var d libBootleg.Discoverer
-		go libBootleg.ReceiveReply(ni.Ip)
+		var l libBootleg.DiscoveryListener
+		l.Start(ni.Ip)
 		d.Start()
+		fmt.Println("Found receivers:")
+		for {
+			ip := <-l.CIp
+			fmt.Println("\t", ip)
+		}
 	default:
 		break
 	}
