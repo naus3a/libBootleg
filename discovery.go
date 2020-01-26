@@ -93,12 +93,21 @@ func ReceiveReply(_ip string) ([]string, error) {
 	for {
 		b := make([]byte, 1)
 		_, src, err := l.ReadFromUDP(b)
-		if err == nil {
+		if err == nil && !alreadyHasString(&ips, src.IP.String()) {
 			ips = append(ips, src.IP.String())
 			fmt.Println("\t", ips[len(ips)-1])
 		}
 	}
 	return ips, nil
+}
+
+func alreadyHasString(_ss *[]string, _s string) bool {
+	for i := 0; i < len(*_ss); i++ {
+		if (*_ss)[i] == _s {
+			return true
+		}
+	}
+	return false
 }
 
 func sendDiscoveryReply(_ip string) error {
