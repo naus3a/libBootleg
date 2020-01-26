@@ -32,6 +32,7 @@ type CliFlags struct {
 	bufSz        int
 	port         int
 	ip           string
+	defaultIp    string
 	token        string
 	pass         string
 	data         string
@@ -43,6 +44,8 @@ type CliFlags struct {
 
 func (cf *CliFlags) setup() {
 	cf.curMode = MODE_NONE
+
+	cf.defaultIp = libBootleg.GetOutboundIp()
 
 	flag.Usage = func() {
 		fmt.Printf("Usage: bootlegger [optional params] [mode]\n\n")
@@ -63,9 +66,10 @@ func (cf *CliFlags) setup() {
 		fmt.Printf("\nParams:\n")
 		flag.PrintDefaults()
 	}
+
 	flag.IntVar(&cf.bufSz, "bf", 100, "buffer size in bytes")
 	flag.IntVar(&cf.port, "port", 6666, "port listening")
-	flag.StringVar(&cf.ip, "ip", libBootleg.GetOutboundIp(), "IP listening")
+	flag.StringVar(&cf.ip, "ip", cf.defaultIp, "IP listening")
 	flag.StringVar(&cf.token, "token", "", "the token to use (use saved token if blank)")
 	flag.StringVar(&cf.pass, "pass", "", "the password to make or load your saved token (unencrypted if blank)")
 }
@@ -314,7 +318,23 @@ func loadSecretPath() (string, error) {
 //---secret handling
 
 //sender---
+
+func discoverFirstReceiver(_ip *string, _timeout float32) {
+	var d libBootleg.Discoverer
+	var l libBootleg.DiscoveryListener
+	l.Start(*_ip)
+	d.Start()
+	fIp := <-l.CIp
+	*_ip = fIp
+	fmt.Println("Found receiver @ ", fIp)
+	d.Stop()
+	l.Stop()
+}
+
 func runSender(cf *CliFlags) {
+	if cf.ip == cf.defaultIp {
+		discoverFirstReceiver(&cf.ip, 5)
+	}
 	ni := libBootleg.NetInfo{
 		cf.ip,
 		cf.port,
