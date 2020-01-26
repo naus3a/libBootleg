@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+type Discoverer struct {
+	bRunning bool
+	cStop    chan struct{}
+}
+
 func MakeDefaultMulticastNetInfo() NetInfo {
 	var m NetInfo
 	m.Ip = "239.6.6.6"
@@ -19,29 +24,58 @@ func MakeDiscoverPacket() []byte {
 	return p
 }
 
-func Discover(_ni *NetInfo) error {
+func (d *Discoverer) Discover(_ni *NetInfo) error {
 	a, err := _ni.UDPAddr()
 	if err != nil {
 		fmt.Println("Malformed discovery address: ", err)
+		d.bRunning = false
 		return err
 	}
 	c, err := net.DialUDP("udp", nil, a)
 	if err != nil {
 		fmt.Println("Cannot send discovery packet: ", err)
+		d.bRunning = false
 		return err
 	}
 
+	d.bRunning = true
 	defer c.Close()
 	for {
 		c.Write(MakeDiscoverPacket())
 		time.Sleep(1 * time.Second)
+		select {
+		case <-d.cStop:
+			break
+		}
+
 	}
+	d.bRunning = false
 	return nil
 }
 
-func DiscoverDefaultNetInfo() error {
+func (d *Discoverer) DiscoverDefaultNetInfo() error {
 	m := MakeDefaultMulticastNetInfo()
-	return Discover(&m)
+	return d.Discover(&m)
+}
+
+func (d *Discoverer) IsRunning() bool {
+	return d.bRunning
+}
+
+func (d *Discoverer) Start() {
+	if d.IsRunning() {
+		return
+	}
+	d.cStop = make(chan struct{})
+	go d.DiscoverDefaultNetInfo()
+}
+
+func (d *Discoverer) Stop() {
+	if !d.IsRunning() {
+		return
+	}
+	close(d.cStop)
+	d.bRunning = false
 }
 
 func ReceiveProbes(_ni *NetInfo) error {

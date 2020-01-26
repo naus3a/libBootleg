@@ -330,8 +330,9 @@ func runSender(cf *CliFlags) {
 	case libBootleg.DATA_FILE:
 		libBootleg.SendFilePath(&ni, s, cf.data)
 	case libBootleg.DATA_PROBE:
+		var d libBootleg.Discoverer
 		go libBootleg.ReceiveReply(ni.Ip)
-		libBootleg.DiscoverDefaultNetInfo()
+		d.Start()
 	default:
 		break
 	}
