@@ -6,6 +6,7 @@ import (
 	"github.com/mdp/qrterminal"
 	"github.com/naus3a/libBootleg"
 	"os"
+	"time"
 )
 
 type ToolMode int
@@ -319,11 +320,26 @@ func loadSecretPath() (string, error) {
 
 //sender---
 
-func discoverFirstReceiver(_ip *string, _timeout float32) {
+func discoverFirstReceiver(_ip *string, _timeout int) {
 	var d libBootleg.Discoverer
 	var l libBootleg.DiscoveryListener
 	l.Start(*_ip)
 	d.Start()
+	go func() {
+		time.Sleep(time.Duration(_timeout) * time.Second)
+		bD := d.IsRunning()
+		bL := l.IsRunning()
+		if bD {
+			d.Stop()
+		}
+		if bL {
+			l.Stop()
+		}
+		if bD || bL {
+			fmt.Println("No receivers found")
+			os.Exit(0)
+		}
+	}()
 	fIp := <-l.CIp
 	*_ip = fIp
 	fmt.Println("Found receiver @ ", fIp)
