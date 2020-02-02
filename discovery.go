@@ -11,6 +11,7 @@ import (
 type Discoverer struct {
 	bRunning bool
 	cStop    chan struct{}
+	Secret   *[]byte
 }
 
 func MakeDefaultMulticastNetInfo() NetInfo {
@@ -20,9 +21,18 @@ func MakeDefaultMulticastNetInfo() NetInfo {
 	return m
 }
 
-func MakeDiscoverPacket() []byte {
+func MakeDiscoverPacket(_secret *[]byte) []byte {
 	var p []byte
-	p = append(p, '0')
+	if _secret != nil {
+		s, err := MakeTotp(*_secret)
+		if err != nil {
+			p = make([]byte, 6)
+		} else {
+			p = []byte(s)
+		}
+	} else {
+		p = make([]byte, 6)
+	}
 	return p
 }
 
@@ -47,7 +57,7 @@ func (d *Discoverer) Discover(_ni *NetInfo) error {
 		case <-d.cStop:
 			break
 		default:
-			c.Write(MakeDiscoverPacket())
+			c.Write(MakeDiscoverPacket(d.Secret))
 			time.Sleep(1 * time.Second)
 		}
 	}
@@ -88,9 +98,10 @@ type DiscoveryListener struct {
 	bRunning bool
 	ips      []string
 	CIp      chan string
+	Secret   *[]byte
 }
 
-func ReceiveProbes(_ni *NetInfo) error {
+func ReceiveProbes(_ni *NetInfo, _secret *[]byte) error {
 	a, err := _ni.UDPAddr()
 	if err != nil {
 		fmt.Println("Malformed discovery address: ", err)
@@ -105,10 +116,9 @@ func ReceiveProbes(_ni *NetInfo) error {
 	defer l.Close()
 	for {
 		b := make([]byte, 1)
-		n, src, err := l.ReadFromUDP(b)
+		_, src, err := l.ReadFromUDP(b)
 		if err == nil {
-			fmt.Println(n, " ", src, " ", err)
-			sendDiscoveryReply(src.IP.String())
+			sendDiscoveryReply(src.IP.String(), _secret)
 		} else {
 			fmt.Println("discovery error ", err)
 		}
@@ -116,9 +126,9 @@ func ReceiveProbes(_ni *NetInfo) error {
 	return nil
 }
 
-func ReceiveProbesDefault() error {
+func ReceiveProbesDefault(_secret *[]byte) error {
 	m := MakeDefaultMulticastNetInfo()
-	return ReceiveProbes(&m)
+	return ReceiveProbes(&m, _secret)
 }
 
 func (dl *DiscoveryListener) ReceiveReply(_ip string) ([]string, error) {
@@ -140,7 +150,7 @@ func (dl *DiscoveryListener) ReceiveReply(_ip string) ([]string, error) {
 	}
 	dl.bRunning = true
 	for {
-		b := make([]byte, 1)
+		b := make([]byte, 6)
 		_, src, err := l.ReadFromUDP(b)
 		if err == nil && !alreadyHasString(&ips, src.IP.String()) {
 			sIp := src.IP.String()
@@ -188,7 +198,7 @@ func alreadyHasString(_ss *[]string, _s string) bool {
 	return false
 }
 
-func sendDiscoveryReply(_ip string) error {
+func sendDiscoveryReply(_ip string, _secret *[]byte) error {
 	var ni NetInfo
 	ni.Ip = _ip
 	ni.Port = 9999
@@ -204,7 +214,7 @@ func sendDiscoveryReply(_ip string) error {
 	}
 	defer c.Close()
 	for i := 0; i < 5; i++ {
-		c.Write(MakeDiscoverPacket())
+		c.Write(MakeDiscoverPacket(_secret))
 		time.Sleep(1 * time.Second)
 	}
 	return nil

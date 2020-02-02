@@ -1,10 +1,13 @@
 package libBootleg
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"github.com/mimoo/disco/libdisco"
+	"math"
 	"strconv"
-	"strings"
+	"time"
 )
 
 func makeConfig(_secret []byte) libdisco.Config {
@@ -62,36 +65,39 @@ func SendProbe(_ni *NetInfo, _secret []byte) error {
 	return err
 }
 
-func DiscoverReceivers(_ni *NetInfo, _secret []byte) []string {
-	//naif scanner; gonna polish it later
-	var ips []string
-	if SendProbe(_ni, _secret) == nil {
-		ips = append(ips, _ni.Ip)
-	} else {
-		splitIp := strings.Split(_ni.Ip, ".")
-		var sLoc string
-		var s3 string
-		var iLoc int
-		for i := 0; i < 3; i++ {
-			s3 += splitIp[i]
-			s3 += "."
-		}
-		sLoc = splitIp[len(splitIp)-1]
-		iLoc, _ = strconv.Atoi(sLoc)
-		for i := 1; i < 254; i++ {
-			if i != iLoc {
-				var sCur string
-				sCur = s3 + strconv.Itoa(i)
-				var cni NetInfo
-				cni.Ip = sCur
-				cni.Port = _ni.Port
-				if SendProbe(&cni, _secret) == nil {
-					ips = append(ips, cni.Ip)
-					i = 300
-				}
-			}
-		}
-	}
+//OTP---
+func MakeOtp(_secret []byte, _ephemeral []byte) (otp string, err error) {
+	otp = ""
+	hash := libdisco.Hash(append(_secret, _ephemeral...), 32)
 
-	return ips
+	//get last nibble/half byte, which is always <15
+	offset := (hash[31] & 15)
+
+	var chunk uint32
+	r := bytes.NewReader(hash[offset : offset+4])
+	err = binary.Read(r, binary.BigEndian, &chunk)
+	if err != nil {
+		return
+	}
+	//as per RFC 4226 ignore most significant bits
+	//and divide by 1million to get a reaminder <7digits
+	h12 := (int(chunk) & 0x7fffffff) % 1000000
+	otp = strconv.Itoa(int(h12))
+	if len(otp) < 6 {
+		n0 := 6 - len(otp)
+		s0 := ""
+		for i := 0; i < n0; i++ {
+			s0 += "0"
+		}
+		otp = s0 + otp
+	}
+	return
 }
+
+func MakeTotp(_secret []byte) (otp string, err error) {
+	t := math.Floor(float64(time.Now().Unix() / 30))
+	sT := fmt.Sprintf("%f", t)
+	return MakeOtp(_secret, []byte(sT))
+}
+
+//---OTP

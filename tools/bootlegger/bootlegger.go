@@ -348,7 +348,7 @@ func discoverFirstReceiver(_ip *string, _timeout int) {
 }
 
 func runSender(cf *CliFlags) {
-	if cf.ip == cf.defaultIp {
+	if (cf.ip == cf.defaultIp) && (cf.dataType != libBootleg.DATA_PROBE) {
 		discoverFirstReceiver(&cf.ip, 5)
 	}
 	ni := libBootleg.NetInfo{
@@ -368,6 +368,8 @@ func runSender(cf *CliFlags) {
 	case libBootleg.DATA_PROBE:
 		var d libBootleg.Discoverer
 		var l libBootleg.DiscoveryListener
+		l.Secret = &s
+		d.Secret = &s
 		l.Start(ni.Ip)
 		d.Start()
 		fmt.Println("Found receivers:")
@@ -395,7 +397,7 @@ func runReceiver(cf *CliFlags) {
 	l.BufSize = cf.bufSz
 	l.SetupAndListen(cf.ip, cf.port, s, cData)
 
-	go libBootleg.ReceiveProbesDefault()
+	go libBootleg.ReceiveProbesDefault(&s)
 
 	var bLoop bool
 	bLoop = true
