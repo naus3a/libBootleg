@@ -6,6 +6,18 @@ import (
 	"time"
 )
 
+func isGoodDiscoveryPacket(_pkt []byte, _secret *[]byte) bool {
+	if len(_pkt) != 6 {
+		return false
+	}
+
+	cmp, err := MakeTotp(*_secret)
+	if err != nil {
+		return false
+	}
+	return string(_pkt) == string(cmp)
+}
+
 //Discoverer ---
 
 type Discoverer struct {
@@ -115,10 +127,12 @@ func ReceiveProbes(_ni *NetInfo, _secret *[]byte) error {
 	l.SetReadBuffer(1)
 	defer l.Close()
 	for {
-		b := make([]byte, 1)
+		b := make([]byte, 6)
 		_, src, err := l.ReadFromUDP(b)
 		if err == nil {
-			sendDiscoveryReply(src.IP.String(), _secret)
+			if isGoodDiscoveryPacket(b, _secret) {
+				sendDiscoveryReply(src.IP.String(), _secret)
+			}
 		} else {
 			fmt.Println("discovery error ", err)
 		}
