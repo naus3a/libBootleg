@@ -498,7 +498,17 @@ func runReceiver(cf *CliFlags) {
 		data = <-cData
 		switch data.Header.GetType() {
 		case libBootleg.DATA_TEXT:
-			fmt.Println(string(data.Data))
+			//text works, but it's a bit ugly atm
+			var sOutput string
+			sOutput = ""
+			if len(data.Data) >= 4 {
+				var textSz int
+				textSz = int(data.Data[3])
+				for i := 4; i <= (textSz + 3); i++ {
+					sOutput += string(data.Data[i])
+				}
+			}
+			fmt.Println(sOutput)
 			bLoop = false
 		case libBootleg.DATA_FILE:
 			err = data.SaveFile()

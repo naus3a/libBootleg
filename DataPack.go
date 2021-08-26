@@ -54,8 +54,10 @@ func (dp *DataPack) SetFromRaw(_d *[]byte) {
 		return
 	case byte(DATA_TEXT):
 		fmt.Println("Data format: text")
-		dp.Header.dataType = DATA_TEXT
-		dp.Data = (*_d)[1:]
+		var iFrom int
+		iFrom = 1
+		dp.Header.SetFromData(_d)
+		dp.Data = (*_d)[iFrom:]
 		return
 	case byte(DATA_FILE):
 		fmt.Println("Data format: file")
