@@ -19,6 +19,8 @@ const (
 	MODE_RECEIVER
 	MODE_SECRET
 	MODE_INFO
+	MODE_ENCRYPT
+	MODE_DECRYPT
 	MODE_NONE
 )
 
@@ -76,6 +78,8 @@ func (cf *CliFlags) setup() {
 		fmt.Printf("\tmake: forge (make random if you don't specify a token), print and save new token\n")
 		fmt.Printf("\tclear: delete saved token\n")
 		fmt.Printf("\tshow [qr]: print saved token (as a QR code if you specify the qr option)\n")
+		fmt.Printf("  encrypt [text]\n")
+		fmt.Printf("  decrypt [cipher text]\n")
 		fmt.Printf("  info [item to show] [qr] (qr is optional)\n")
 		fmt.Printf("\t	secret: print saved token\n")
 		fmt.Printf("\t	ip: print local ip\n")
@@ -197,6 +201,18 @@ func (cf *CliFlags) parse() {
 			cf.curMode = MODE_INFO
 			cf.curInfoAction = cf.parseInfo(args, i)
 			i = len(args) + 2
+		case "encrypt":
+			if len(args) > i {
+				cf.curMode = MODE_ENCRYPT
+				cf.data = args[i+1]
+			}
+			i = len(args) + 2
+		case "decrypt":
+			if len(args) > i {
+				cf.curMode = MODE_DECRYPT
+				cf.data = args[i+1]
+			}
+			i = len(args) + 2
 		}
 	}
 
@@ -282,12 +298,17 @@ func main() {
 		runReceiver(&cliFlags)
 	case MODE_INFO:
 		runInfo(&cliFlags)
+	case MODE_ENCRYPT:
+		runEncrypt(&cliFlags)
+	case MODE_DECRYPT:
+		runDecrypt(&cliFlags)
 	case MODE_NONE:
 		flag.Usage()
 	}
 }
 
 //info handling---
+
 func runInfo(cf *CliFlags) {
 	switch cf.curInfoAction {
 	case INFO_SECRET:
@@ -307,6 +328,31 @@ func showIp(cf *CliFlags) {
 }
 
 //---info handling
+
+//encrypt/decrypt---
+
+func runEncrypt(cf *CliFlags) {
+	var s []byte
+	err := getSecret(cf, &s)
+	if err != nil {
+		fmt.Print("")
+	}
+	cipherText := libBootleg.EncryptText(s, cf.data)
+	fmt.Println(cipherText)
+}
+
+func runDecrypt(cf *CliFlags) {
+	var s []byte
+	err := getSecret(cf, &s)
+	if err != nil {
+		fmt.Print("")
+	}
+	var plainText string
+	plainText, err = libBootleg.DecryptText(s, cf.data)
+	fmt.Println(plainText)
+}
+
+//---encrypt/decrypt
 
 //secret handling---
 func runSecret(cf *CliFlags) {

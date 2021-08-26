@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/mimoo/disco/libdisco"
 	"math"
 	"strconv"
 	"time"
+
+	"github.com/mimoo/disco/libdisco"
 )
 
 func makeConfig(_secret []byte) libdisco.Config {
@@ -101,3 +102,22 @@ func MakeTotp(_secret []byte) (otp string, err error) {
 }
 
 //---OTP
+
+//text encryption---
+
+func EncryptText(_secret []byte, _text string) string {
+	dataText := []byte(_text)
+	cipher := libdisco.Encrypt(_secret, dataText)
+	return MakeSecretReadable(cipher)
+}
+
+func DecryptText(_secret []byte, _cipherText string) (text string, err error) {
+	var dataCipher []byte
+	dataCipher, err = DecodeReadableSecret(_cipherText)
+	var dataText []byte
+	dataText, err = libdisco.Decrypt(_secret, dataCipher)
+	text = string(dataText)
+	return
+}
+
+//---text encryption
