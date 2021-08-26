@@ -3,10 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/mdp/qrterminal"
-	"github.com/naus3a/libBootleg"
 	"os"
 	"time"
+
+	"github.com/mdp/qrterminal"
+	"github.com/naus3a/libBootleg"
 )
 
 type ToolMode int
@@ -15,6 +16,7 @@ const (
 	MODE_SENDER ToolMode = iota
 	MODE_RECEIVER
 	MODE_SECRET
+	MODE_INFO
 	MODE_NONE
 )
 
@@ -27,20 +29,29 @@ const (
 	SECRET_NONE
 )
 
+type InfoAction int
+
+const (
+	INFO_SECRET = iota
+	INFO_IP
+	INFO_NONE
+)
+
 //parsing---
 
 type CliFlags struct {
-	bufSz        int
-	port         int
-	ip           string
-	defaultIp    string
-	token        string
-	pass         string
-	data         string
-	curMode      ToolMode
-	curSecAction SecretAction
-	dataType     libBootleg.DataType
-	bQr          bool
+	bufSz         int
+	port          int
+	ip            string
+	defaultIp     string
+	token         string
+	pass          string
+	data          string
+	curMode       ToolMode
+	curSecAction  SecretAction
+	curInfoAction InfoAction
+	dataType      libBootleg.DataType
+	bQr           bool
 }
 
 func (cf *CliFlags) setup() {
@@ -63,6 +74,9 @@ func (cf *CliFlags) setup() {
 		fmt.Printf("\tmake: forge (make random if you don't specify a token), print and save new token\n")
 		fmt.Printf("\tclear: delete saved token\n")
 		fmt.Printf("\tshow [qr]: print saved token (as a QR code if you specify the qr option)\n")
+		fmt.Printf("  info [item to show] [qr] (qr is optional)\n")
+		fmt.Printf("\t	secret: print saved token\n")
+		fmt.Printf("\t	ip: print local ip\n")
 
 		fmt.Printf("\nParams:\n")
 		flag.PrintDefaults()
@@ -127,6 +141,26 @@ func (cf *CliFlags) parseSecret(_args []string, sId int) SecretAction {
 
 }
 
+func (cf *CliFlags) parseInfo(_args []string, sId int) InfoAction {
+	if len(_args) < (sId + 2) {
+		return INFO_NONE
+	}
+	cf.bQr = false
+	if len(_args) >= sId+3 {
+		if _args[sId+2] == "qr" {
+			cf.bQr = true
+		}
+	}
+	switch _args[sId+1] {
+	case "secret":
+		return INFO_SECRET
+	case "ip":
+		return INFO_IP
+	default:
+		return INFO_NONE
+	}
+}
+
 func (cf *CliFlags) parse() {
 	args := os.Args[1:]
 	if len(args) < 1 {
@@ -156,6 +190,10 @@ func (cf *CliFlags) parse() {
 		case "secret":
 			cf.curMode = MODE_SECRET
 			cf.curSecAction = cf.parseSecret(args, i)
+			i = len(args) + 2
+		case "info":
+			cf.curMode = MODE_INFO
+			cf.curInfoAction = cf.parseInfo(args, i)
 			i = len(args) + 2
 		}
 	}
@@ -211,10 +249,33 @@ func main() {
 		runSender(&cliFlags)
 	case MODE_RECEIVER:
 		runReceiver(&cliFlags)
+	case MODE_INFO:
+		runInfo(&cliFlags)
 	case MODE_NONE:
 		flag.Usage()
 	}
 }
+
+//info handling---
+func runInfo(cf *CliFlags) {
+	switch cf.curInfoAction {
+	case INFO_SECRET:
+		showSecret(cf)
+	case INFO_IP:
+		showIp(cf)
+	default:
+		flag.Usage()
+	}
+}
+
+func showIp(cf *CliFlags) {
+	fmt.Printf(cf.defaultIp + "\n")
+	if cf.bQr {
+		printQR(cf.defaultIp)
+	}
+}
+
+//---info handling
 
 //secret handling---
 func runSecret(cf *CliFlags) {
