@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/mdp/qrterminal"
@@ -214,6 +216,35 @@ func (cf *CliFlags) hasPassword() bool {
 	return (len(cf.pass) > 0)
 }
 
+func (cf *CliFlags) validateIp() {
+	if cf.ip == cf.defaultIp {
+		return
+	}
+	splitIp := strings.Split(cf.ip, ".")
+	numTokens := len(splitIp)
+	if numTokens < 4 {
+		if numTokens == 1 {
+			addr, err := strconv.Atoi(splitIp[0])
+			if err != nil {
+				fmt.Printf("malformed IP: using default")
+				cf.ip = cf.defaultIp
+			} else {
+				if addr < 0 {
+					addr = 0
+				} else if addr > 255 {
+					addr = 255
+				}
+				splitDefaultIp := strings.Split(cf.defaultIp, ".")
+				cf.ip = splitDefaultIp[0] + "." + splitDefaultIp[1] + "." + splitDefaultIp[2] + "." + strconv.Itoa(addr)
+			}
+		} else {
+			fmt.Printf("malformed IP: using default")
+			cf.ip = cf.defaultIp
+		}
+	}
+
+}
+
 func getSecret(cf *CliFlags, _secret *[]byte) error {
 	var err error
 	if cf.isGoodFlagToken() {
@@ -409,6 +440,7 @@ func discoverFirstReceiver(_ip *string, _timeout int) {
 }
 
 func runSender(cf *CliFlags) {
+	cf.validateIp()
 	if (cf.ip == cf.defaultIp) && (cf.dataType != libBootleg.DATA_PROBE) {
 		discoverFirstReceiver(&cf.ip, 5)
 	}
