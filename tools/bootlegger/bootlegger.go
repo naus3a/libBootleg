@@ -58,6 +58,9 @@ type CliFlags struct {
 	bQr           bool
 }
 
+//this is kinda ugly; maybe let's get rid of the flag lib
+var flagQrPtr *bool
+
 func (cf *CliFlags) setup() {
 	cf.curMode = MODE_NONE
 
@@ -77,10 +80,10 @@ func (cf *CliFlags) setup() {
 		fmt.Printf("  secret [action]\n")
 		fmt.Printf("\tmake: forge (make random if you don't specify a token), print and save new token\n")
 		fmt.Printf("\tclear: delete saved token\n")
-		fmt.Printf("\tshow [qr]: print saved token (as a QR code if you specify the qr option)\n")
+		fmt.Printf("\tshow: print saved token\n")
 		fmt.Printf("  encrypt [text]\n")
 		fmt.Printf("  decrypt [cipher text]\n")
-		fmt.Printf("  info [item to show] [qr] (qr is optional)\n")
+		fmt.Printf("  info [item to show]\n")
 		fmt.Printf("\t	secret: print saved token\n")
 		fmt.Printf("\t	ip: print local ip\n")
 
@@ -93,6 +96,8 @@ func (cf *CliFlags) setup() {
 	flag.StringVar(&cf.ip, "ip", cf.defaultIp, "IP listening")
 	flag.StringVar(&cf.token, "token", "", "the token to use (use saved token if blank)")
 	flag.StringVar(&cf.pass, "pass", "", "the password to make or load your saved token (unencrypted if blank)")
+
+	flagQrPtr = flag.Bool("qr", false, "render output as QR code")
 }
 
 func (cf *CliFlags) parseSenderData(_args []string, sId int) bool {
@@ -135,11 +140,6 @@ func (cf *CliFlags) parseSecret(_args []string, sId int) SecretAction {
 		return SECRET_CLEAR
 	case "show":
 		cf.bQr = false
-		if len(_args) >= sId+3 {
-			if _args[sId+2] == "qr" {
-				cf.bQr = true
-			}
-		}
 		return SECRET_SHOW
 	default:
 		return SECRET_NONE
@@ -152,11 +152,6 @@ func (cf *CliFlags) parseInfo(_args []string, sId int) InfoAction {
 		return INFO_NONE
 	}
 	cf.bQr = false
-	if len(_args) >= sId+3 {
-		if _args[sId+2] == "qr" {
-			cf.bQr = true
-		}
-	}
 	switch _args[sId+1] {
 	case "secret":
 		return INFO_SECRET
@@ -217,6 +212,7 @@ func (cf *CliFlags) parse() {
 	}
 
 	flag.Parse()
+	cf.bQr = *flagQrPtr
 }
 
 func (cf *CliFlags) isGoodFlagToken() bool {
@@ -339,6 +335,9 @@ func runEncrypt(cf *CliFlags) {
 	}
 	cipherText := libBootleg.EncryptText(s, cf.data)
 	fmt.Println(cipherText)
+	if cf.bQr {
+		printQR(cipherText)
+	}
 }
 
 func runDecrypt(cf *CliFlags) {
@@ -350,6 +349,9 @@ func runDecrypt(cf *CliFlags) {
 	var plainText string
 	plainText, err = libBootleg.DecryptText(s, cf.data)
 	fmt.Println(plainText)
+	if cf.bQr {
+		printQR(plainText)
+	}
 }
 
 //---encrypt/decrypt
