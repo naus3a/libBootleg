@@ -8,6 +8,7 @@ import (
 )
 
 var discoveries []peerdiscovery.Discovered
+var err error
 
 func onDiscovered(d peerdiscovery.Discovered) {
 	fmt.Println("I got one:")
@@ -15,15 +16,20 @@ func onDiscovered(d peerdiscovery.Discovered) {
 }
 
 func main() {
-	s := peerdiscovery.Settings{
-		Limit:     1,
-		TimeLimit: time.Second * 60,
-		Notify:    onDiscovered,
-		//AllowSelf: true,
-	}
-	fmt.Println("Starting discovery")
-	discoveries, _ = peerdiscovery.Discover(s)
+	fmt.Println("Starting publishing myself")
 
+	s := peerdiscovery.Settings{
+		Limit:            1,
+		TimeLimit:        time.Second * 60,
+		Notify:           onDiscovered,
+		DisableBroadcast: true,
+	}
+
+	discoveries, err = peerdiscovery.Discover(s)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	/*for _, d := range discoveries {
 		fmt.Printf("discovered '%s'\n", d.Address)
 	}*/
