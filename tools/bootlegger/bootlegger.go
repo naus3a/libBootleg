@@ -459,8 +459,9 @@ func loadSecretPath() (string, error) {
 
 //sender---
 
-func discoverFirstReceiver(_ip *string, _timeout int) {
+func discoverFirstReceiver(_ip *string, _timeout int, _secret *[]byte) {
 	var d libBootleg.Discoverer
+	d.Init(_secret)
 	discovered, err := d.Discover(_timeout)
 	if err != nil {
 		fmt.Println(err)
@@ -475,19 +476,21 @@ func discoverFirstReceiver(_ip *string, _timeout int) {
 }
 
 func runSender(cf *CliFlags) {
-	cf.validateIp()
-	if (cf.ip == cf.defaultIp) && (cf.dataType != libBootleg.DATA_PROBE) {
-		discoverFirstReceiver(&cf.ip, 5)
-	}
-	ni := libBootleg.NetInfo{
-		cf.ip,
-		cf.port,
-	}
 	var s []byte
 	err := getSecret(cf, &s)
 	if err != nil {
 		return
 	}
+
+	cf.validateIp()
+	if (cf.ip == cf.defaultIp) && (cf.dataType != libBootleg.DATA_PROBE) {
+		discoverFirstReceiver(&cf.ip, 5, &s)
+	}
+	ni := libBootleg.NetInfo{
+		cf.ip,
+		cf.port,
+	}
+
 	switch cf.dataType {
 	case libBootleg.DATA_TEXT:
 		libBootleg.SendText(&ni, s, cf.data)

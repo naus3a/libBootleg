@@ -46,14 +46,16 @@ func isGoodDiscoveryPacket(_pkt []byte, _secret *[]byte) bool {
 
 // Discoverer tries to find a listening bootleg instance
 type Discoverer struct {
-	discoveries []peerdiscovery.Discovered
-	err         error
-	secret      *[]byte
+	discoveries   []peerdiscovery.Discovered
+	err           error
+	secret        *[]byte
+	cStopDiscover chan struct{}
 }
 
 // Init initializez the discoverer
 func (d *Discoverer) Init(secret *[]byte) {
 	d.secret = secret
+	d.cStopDiscover = make(chan struct{})
 }
 
 // Discover discovers listening bootleg instances
@@ -61,13 +63,14 @@ func (d *Discoverer) Discover(timeout int) (discovered []peerdiscovery.Discovere
 	d.err = nil
 
 	s := peerdiscovery.Settings{
-		Limit:            1,
+		Limit:            -1,
 		TimeLimit:        time.Second * time.Duration(timeout),
 		DisableBroadcast: true,
 		Notify:           d.onDiscovered,
+		StopChan:         d.cStopDiscover,
 	}
 
-	d.discoveries, d.err = peerdiscovery.Discover(s)
+	_, d.err = peerdiscovery.Discover(s)
 
 	err = d.err
 	if len(d.discoveries) > 0 {
@@ -77,7 +80,10 @@ func (d *Discoverer) Discover(timeout int) (discovered []peerdiscovery.Discovere
 }
 
 func (d *Discoverer) onDiscovered(discovered peerdiscovery.Discovered) {
-	fmt.Println("Is packet good: ", isGoodDiscoveryPacket(discovered.Payload, d.secret))
+	if isGoodDiscoveryPacket(discovered.Payload, d.secret) {
+		d.discoveries = append(d.discoveries, discovered)
+		close(d.cStopDiscover)
+	}
 }
 
 //Discoverable---
