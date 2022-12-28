@@ -4,7 +4,31 @@ import (
 	"fmt"
 	"net"
 	"time"
+
+	"github.com/schollz/peerdiscovery"
 )
+
+func MakeDefaultMulticastNetInfo() NetInfo {
+	var m NetInfo
+	m.Ip = "239.6.6.6"
+	m.Port = 6666
+	return m
+}
+
+func MakeDiscoverPacket(_secret *[]byte) []byte {
+	var p []byte
+	if _secret != nil {
+		s, err := MakeTotp(*_secret)
+		if err != nil {
+			p = make([]byte, 6)
+		} else {
+			p = []byte(s)
+		}
+	} else {
+		p = make([]byte, 6)
+	}
+	return p
+}
 
 func isGoodDiscoveryPacket(_pkt []byte, _secret *[]byte) bool {
 	if len(_pkt) != 6 {
@@ -20,7 +44,37 @@ func isGoodDiscoveryPacket(_pkt []byte, _secret *[]byte) bool {
 
 //Discoverer ---
 
+// Discoverer tries to find a listening bootleg instance
 type Discoverer struct {
+	discoveries []peerdiscovery.Discovered
+	err         error
+}
+
+// Discover discovers listening bootleg instances
+func (d *Discoverer) Discover(timeout int) (discovered []peerdiscovery.Discovered, err error) {
+	d.err = nil
+
+	s := peerdiscovery.Settings{
+		Limit:            1,
+		TimeLimit:        time.Second * time.Duration(timeout),
+		Notify:           onDiscovered,
+		DisableBroadcast: true,
+	}
+
+	d.discoveries, d.err = peerdiscovery.Discover(s)
+
+	err = d.err
+	if len(d.discoveries) > 0 {
+		discovered = d.discoveries
+	}
+	return
+}
+
+func onDiscovered(d peerdiscovery.Discovered) {
+
+}
+
+/*type Discoverer struct {
 	bRunning bool
 	cStop    chan struct{}
 	Secret   *[]byte
@@ -100,7 +154,7 @@ func (d *Discoverer) Stop() {
 	}
 	close(d.cStop)
 	d.bRunning = false
-}
+}*/
 
 //---Discoverer
 
