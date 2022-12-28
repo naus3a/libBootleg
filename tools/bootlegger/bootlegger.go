@@ -11,6 +11,8 @@ import (
 	"github.com/naus3a/libBootleg"
 )
 
+const version string = "0.2"
+
 type ToolMode int
 
 const (
@@ -60,12 +62,17 @@ type CliFlags struct {
 //this is kinda ugly; maybe let's get rid of the flag lib
 var flagQrPtr *bool
 
+func printVersion() {
+	fmt.Println("bootlegger v" + version)
+}
+
 func (cf *CliFlags) setup() {
 	cf.curMode = MODE_NONE
 
 	cf.defaultIp = libBootleg.GetOutboundIp()
 
 	flag.Usage = func() {
+		printVersion()
 		fmt.Printf("Usage: bootlegger [optional params] [mode]\n\n")
 
 		fmt.Printf("Modes:\n")
