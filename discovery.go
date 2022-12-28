@@ -4,7 +4,31 @@ import (
 	"fmt"
 	"net"
 	"time"
+
+	"github.com/schollz/peerdiscovery"
 )
+
+func MakeDefaultMulticastNetInfo() NetInfo {
+	var m NetInfo
+	m.Ip = "239.6.6.6"
+	m.Port = 6666
+	return m
+}
+
+func MakeDiscoverPacket(_secret *[]byte) []byte {
+	var p []byte
+	if _secret != nil {
+		s, err := MakeTotp(*_secret)
+		if err != nil {
+			p = make([]byte, 6)
+		} else {
+			p = []byte(s)
+		}
+	} else {
+		p = make([]byte, 6)
+	}
+	return p
+}
 
 func isGoodDiscoveryPacket(_pkt []byte, _secret *[]byte) bool {
 	if len(_pkt) != 6 {
@@ -20,7 +44,108 @@ func isGoodDiscoveryPacket(_pkt []byte, _secret *[]byte) bool {
 
 //Discoverer ---
 
+// Discoverer tries to find a listening bootleg instance
 type Discoverer struct {
+	discoveries   []peerdiscovery.Discovered
+	err           error
+	secret        *[]byte
+	cStopDiscover chan struct{}
+}
+
+// Init initializez the discoverer
+func (d *Discoverer) Init(secret *[]byte) {
+	d.secret = secret
+	d.cStopDiscover = make(chan struct{})
+}
+
+// Discover discovers listening bootleg instances
+func (d *Discoverer) Discover(timeout int) (discovered []peerdiscovery.Discovered, err error) {
+	d.err = nil
+
+	s := peerdiscovery.Settings{
+		Limit:            -1,
+		TimeLimit:        time.Second * time.Duration(timeout),
+		DisableBroadcast: true,
+		Notify:           d.onDiscovered,
+		StopChan:         d.cStopDiscover,
+	}
+
+	_, d.err = peerdiscovery.Discover(s)
+
+	err = d.err
+	if len(d.discoveries) > 0 {
+		discovered = d.discoveries
+	}
+	return
+}
+
+func (d *Discoverer) onDiscovered(discovered peerdiscovery.Discovered) {
+	if isGoodDiscoveryPacket(discovered.Payload, d.secret) {
+		d.discoveries = append(d.discoveries, discovered)
+		close(d.cStopDiscover)
+	}
+}
+
+//Discoverable---
+
+// Discoverable makes itself discoverable
+type Discoverable struct {
+	bPublising    bool
+	discoveries   []peerdiscovery.Discovered
+	err           error
+	cStopDiscover chan struct{}
+	secret        *[]byte
+}
+
+// Init initializes the discoverable object
+func (d *Discoverable) Init(secret *[]byte) {
+	d.bPublising = false
+	d.secret = secret
+	d.cStopDiscover = make(chan struct{})
+}
+
+//IsPublishing returns true if the discoverable object is publishing itself
+func (d *Discoverable) IsPublishing() bool {
+	return d.bPublising
+}
+
+// StartPublishing starts to publish the discoverable object
+func (d *Discoverable) StartPublishing() {
+	if d.bPublising {
+		return
+	}
+
+	d.bPublising = true
+	go d.discover()
+}
+
+// StopPublishing stops the discoverable object
+func (d *Discoverable) StopPublishing() {
+	if !d.bPublising {
+		return
+	}
+	close(d.cStopDiscover)
+	d.bPublising = false
+}
+
+func (d *Discoverable) discover() {
+	s := peerdiscovery.Settings{
+		Limit:       -1,
+		TimeLimit:   -1,
+		PayloadFunc: d.makePayload,
+		StopChan:    d.cStopDiscover,
+	}
+
+	d.discoveries, d.err = peerdiscovery.Discover(s)
+}
+
+func (d *Discoverable) makePayload() []byte {
+	return MakeDiscoverPacket(d.secret)
+}
+
+//---Discoverable
+
+/*type Discoverer struct {
 	bRunning bool
 	cStop    chan struct{}
 	Secret   *[]byte
@@ -100,7 +225,7 @@ func (d *Discoverer) Stop() {
 	}
 	close(d.cStop)
 	d.bRunning = false
-}
+}*/
 
 //---Discoverer
 

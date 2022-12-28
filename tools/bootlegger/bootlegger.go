@@ -6,7 +6,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/mdp/qrterminal"
 	"github.com/naus3a/libBootleg"
@@ -460,54 +459,45 @@ func loadSecretPath() (string, error) {
 
 //sender---
 
-func discoverFirstReceiver(_ip *string, _timeout int) {
+func discoverFirstReceiver(_ip *string, _timeout int, _secret *[]byte) {
 	var d libBootleg.Discoverer
-	var l libBootleg.DiscoveryListener
-	l.Start(*_ip)
-	d.Start()
-	go func() {
-		time.Sleep(time.Duration(_timeout) * time.Second)
-		bD := d.IsRunning()
-		bL := l.IsRunning()
-		if bD {
-			d.Stop()
-		}
-		if bL {
-			l.Stop()
-		}
-		if bD || bL {
-			fmt.Println("No receivers found")
-			os.Exit(0)
-		}
-	}()
-	fIp := <-l.CIp
-	*_ip = fIp
-	fmt.Println("Found receiver @ ", fIp)
-	d.Stop()
-	l.Stop()
+	d.Init(_secret)
+	discovered, err := d.Discover(_timeout)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	if len(discovered) > 0 {
+		*_ip = discovered[0].Address
+		fmt.Println("Found receiver @ " + discovered[0].Address)
+	} else {
+		fmt.Println("No receivers found")
+	}
 }
 
 func runSender(cf *CliFlags) {
-	cf.validateIp()
-	if (cf.ip == cf.defaultIp) && (cf.dataType != libBootleg.DATA_PROBE) {
-		discoverFirstReceiver(&cf.ip, 5)
-	}
-	ni := libBootleg.NetInfo{
-		cf.ip,
-		cf.port,
-	}
 	var s []byte
 	err := getSecret(cf, &s)
 	if err != nil {
 		return
 	}
+
+	cf.validateIp()
+	if (cf.ip == cf.defaultIp) && (cf.dataType != libBootleg.DATA_PROBE) {
+		discoverFirstReceiver(&cf.ip, 5, &s)
+	}
+	ni := libBootleg.NetInfo{
+		cf.ip,
+		cf.port,
+	}
+
 	switch cf.dataType {
 	case libBootleg.DATA_TEXT:
 		libBootleg.SendText(&ni, s, cf.data)
 	case libBootleg.DATA_FILE:
 		libBootleg.SendFilePath(&ni, s, cf.data)
 	case libBootleg.DATA_PROBE:
-		var d libBootleg.Discoverer
+		/*var d libBootleg.Discoverer
 		var l libBootleg.DiscoveryListener
 		l.Secret = &s
 		d.Secret = &s
@@ -517,7 +507,7 @@ func runSender(cf *CliFlags) {
 		for {
 			ip := <-l.CIp
 			fmt.Println("\t", ip)
-		}
+		}*/
 	default:
 		break
 	}
@@ -538,7 +528,9 @@ func runReceiver(cf *CliFlags) {
 	l.BufSize = cf.bufSz
 	l.SetupAndListen(cf.ip, cf.port, s, cData)
 
-	go libBootleg.ReceiveProbesDefault(&s)
+	var d libBootleg.Discoverable
+	d.Init(&s)
+	d.StartPublishing()
 
 	var bLoop bool
 	bLoop = true
@@ -546,6 +538,7 @@ func runReceiver(cf *CliFlags) {
 		data = <-cData
 		switch data.Header.GetType() {
 		case libBootleg.DATA_TEXT:
+			d.StopPublishing()
 			//text works, but it's a bit ugly atm
 			var sOutput string
 			sOutput = ""
@@ -559,6 +552,7 @@ func runReceiver(cf *CliFlags) {
 			fmt.Println(sOutput)
 			bLoop = false
 		case libBootleg.DATA_FILE:
+			d.StopPublishing()
 			err = data.SaveFile()
 			if err != nil {
 				fmt.Println("Cannot save file: ", err)
