@@ -525,7 +525,9 @@ func runReceiver(cf *CliFlags) {
 	l.BufSize = cf.bufSz
 	l.SetupAndListen(cf.ip, cf.port, s, cData)
 
-	go libBootleg.ReceiveProbesDefault(&s)
+	var d libBootleg.Discoverable
+	d.Init()
+	d.StartPublishing()
 
 	var bLoop bool
 	bLoop = true
@@ -533,6 +535,7 @@ func runReceiver(cf *CliFlags) {
 		data = <-cData
 		switch data.Header.GetType() {
 		case libBootleg.DATA_TEXT:
+			d.StopPublishing()
 			//text works, but it's a bit ugly atm
 			var sOutput string
 			sOutput = ""
@@ -546,6 +549,7 @@ func runReceiver(cf *CliFlags) {
 			fmt.Println(sOutput)
 			bLoop = false
 		case libBootleg.DATA_FILE:
+			d.StopPublishing()
 			err = data.SaveFile()
 			if err != nil {
 				fmt.Println("Cannot save file: ", err)
