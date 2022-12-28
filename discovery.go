@@ -74,6 +74,58 @@ func onDiscovered(d peerdiscovery.Discovered) {
 
 }
 
+//Discoverable---
+
+// Discoverable makes itself discoverable
+type Discoverable struct {
+	bPublising    bool
+	discoveries   []peerdiscovery.Discovered
+	err           error
+	cStopDiscover chan struct{}
+}
+
+// Init initializes the discoverable object
+func (d *Discoverable) Init() {
+	d.bPublising = false
+	d.cStopDiscover = make(chan struct{})
+}
+
+//IsPublishing returns true if the discoverable object is publishing itself
+func (d *Discoverable) IsPublishing() bool {
+	return d.bPublising
+}
+
+// StartPublishing starts to publish the discoverable object
+func (d *Discoverable) StartPublishing() {
+	if d.bPublising {
+		return
+	}
+
+	d.bPublising = true
+	go d.discover()
+}
+
+// StopPublishing stops the discoverable object
+func (d *Discoverable) StopPublishing() {
+	if !d.bPublising {
+		return
+	}
+	close(d.cStopDiscover)
+	d.bPublising = false
+}
+
+func (d *Discoverable) discover() {
+	s := peerdiscovery.Settings{
+		Limit:     -1,
+		TimeLimit: -1,
+		StopChan:  d.cStopDiscover,
+	}
+
+	d.discoveries, d.err = peerdiscovery.Discover(s)
+}
+
+//---Discoverable
+
 /*type Discoverer struct {
 	bRunning bool
 	cStop    chan struct{}

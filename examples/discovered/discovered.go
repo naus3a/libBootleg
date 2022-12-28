@@ -4,19 +4,38 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/schollz/peerdiscovery"
+	"github.com/naus3a/libBootleg"
 )
 
-var discoveries []peerdiscovery.Discovered
-var err error
+/*
 
 func onDiscovered(d peerdiscovery.Discovered) {
 	fmt.Println("I got one:")
 	fmt.Println(d.Address)
-}
+}*/
 
 func main() {
-	fmt.Println("Starting publishing myself")
+	s := ""
+	var d libBootleg.Discoverable
+	d.Init()
+	d.StartPublishing()
+	for i := 0; i < 5; i++ {
+		if d.IsPublishing() {
+			s = "publishing"
+		} else {
+			s = "not publishing"
+		}
+		fmt.Println(i, ": ", s)
+		time.Sleep(1 * time.Second)
+	}
+	d.StopPublishing()
+	if d.IsPublishing() {
+		s = "publishing"
+	} else {
+		s = "not publishing"
+	}
+	fmt.Println(s)
+	/*fmt.Println("Starting publishing myself")
 
 	s := peerdiscovery.Settings{
 		Limit:     -1,
@@ -29,7 +48,7 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 		return
-	}
+	}*/
 	/*for _, d := range discoveries {
 		fmt.Printf("discovered '%s'\n", d.Address)
 	}*/
