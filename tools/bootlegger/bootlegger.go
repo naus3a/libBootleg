@@ -6,7 +6,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/mdp/qrterminal"
 	"github.com/naus3a/libBootleg"
@@ -462,29 +461,17 @@ func loadSecretPath() (string, error) {
 
 func discoverFirstReceiver(_ip *string, _timeout int) {
 	var d libBootleg.Discoverer
-	var l libBootleg.DiscoveryListener
-	l.Start(*_ip)
-	d.Start()
-	go func() {
-		time.Sleep(time.Duration(_timeout) * time.Second)
-		bD := d.IsRunning()
-		bL := l.IsRunning()
-		if bD {
-			d.Stop()
-		}
-		if bL {
-			l.Stop()
-		}
-		if bD || bL {
-			fmt.Println("No receivers found")
-			os.Exit(0)
-		}
-	}()
-	fIp := <-l.CIp
-	*_ip = fIp
-	fmt.Println("Found receiver @ ", fIp)
-	d.Stop()
-	l.Stop()
+	discovered, err := d.Discover(_timeout)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	if len(discovered) > 0 {
+		*_ip = discovered[0].Address
+		fmt.Println("Found receiver @ " + discovered[0].Address)
+	} else {
+		fmt.Println("No receivers found")
+	}
 }
 
 func runSender(cf *CliFlags) {
@@ -507,7 +494,7 @@ func runSender(cf *CliFlags) {
 	case libBootleg.DATA_FILE:
 		libBootleg.SendFilePath(&ni, s, cf.data)
 	case libBootleg.DATA_PROBE:
-		var d libBootleg.Discoverer
+		/*var d libBootleg.Discoverer
 		var l libBootleg.DiscoveryListener
 		l.Secret = &s
 		d.Secret = &s
@@ -517,7 +504,7 @@ func runSender(cf *CliFlags) {
 		for {
 			ip := <-l.CIp
 			fmt.Println("\t", ip)
-		}
+		}*/
 	default:
 		break
 	}
