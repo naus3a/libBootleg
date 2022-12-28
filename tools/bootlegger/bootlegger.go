@@ -526,7 +526,7 @@ func runReceiver(cf *CliFlags) {
 	l.SetupAndListen(cf.ip, cf.port, s, cData)
 
 	var d libBootleg.Discoverable
-	d.Init()
+	d.Init(&s)
 	d.StartPublishing()
 
 	var bLoop bool

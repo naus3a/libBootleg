@@ -48,6 +48,12 @@ func isGoodDiscoveryPacket(_pkt []byte, _secret *[]byte) bool {
 type Discoverer struct {
 	discoveries []peerdiscovery.Discovered
 	err         error
+	secret      *[]byte
+}
+
+// Init initializez the discoverer
+func (d *Discoverer) Init(secret *[]byte) {
+	d.secret = secret
 }
 
 // Discover discovers listening bootleg instances
@@ -57,8 +63,8 @@ func (d *Discoverer) Discover(timeout int) (discovered []peerdiscovery.Discovere
 	s := peerdiscovery.Settings{
 		Limit:            1,
 		TimeLimit:        time.Second * time.Duration(timeout),
-		Notify:           onDiscovered,
 		DisableBroadcast: true,
+		Notify:           d.onDiscovered,
 	}
 
 	d.discoveries, d.err = peerdiscovery.Discover(s)
@@ -70,8 +76,8 @@ func (d *Discoverer) Discover(timeout int) (discovered []peerdiscovery.Discovere
 	return
 }
 
-func onDiscovered(d peerdiscovery.Discovered) {
-
+func (d *Discoverer) onDiscovered(discovered peerdiscovery.Discovered) {
+	fmt.Println("Is packet good: ", isGoodDiscoveryPacket(discovered.Payload, d.secret))
 }
 
 //Discoverable---
@@ -82,11 +88,13 @@ type Discoverable struct {
 	discoveries   []peerdiscovery.Discovered
 	err           error
 	cStopDiscover chan struct{}
+	secret        *[]byte
 }
 
 // Init initializes the discoverable object
-func (d *Discoverable) Init() {
+func (d *Discoverable) Init(secret *[]byte) {
 	d.bPublising = false
+	d.secret = secret
 	d.cStopDiscover = make(chan struct{})
 }
 
@@ -116,12 +124,17 @@ func (d *Discoverable) StopPublishing() {
 
 func (d *Discoverable) discover() {
 	s := peerdiscovery.Settings{
-		Limit:     -1,
-		TimeLimit: -1,
-		StopChan:  d.cStopDiscover,
+		Limit:       -1,
+		TimeLimit:   -1,
+		PayloadFunc: d.makePayload,
+		StopChan:    d.cStopDiscover,
 	}
 
 	d.discoveries, d.err = peerdiscovery.Discover(s)
+}
+
+func (d *Discoverable) makePayload() []byte {
+	return MakeDiscoverPacket(d.secret)
 }
 
 //---Discoverable
